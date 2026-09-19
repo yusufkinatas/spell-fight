@@ -1,4 +1,4 @@
-import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, PREMISE_LINE, WIN_LINE } from "./content.ts";
+import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, HOLLOW_LINE, HOLLOW_REASON, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, PREMISE_LINE, WIN_LINE, immuneReason } from "./content.ts";
 import { TUNING, applyCast, canCast, drawHand, isPhaseChange, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, offenceOf, revealCues, usedHandWords, wordCount, type Cue, type LogEntry, type Run } from "./game.ts";
 import { effect, music, playCue, setSetting, settings, shimmer, unlockAudio } from "./audio.ts";
 import { icon } from "./icons.ts";
@@ -33,7 +33,7 @@ function hpBar(label: string, hp: number, max: number): HTMLElement {
 }
 
 // Reveal playback: each cue is a CSS animation (intensity in --i, 0..1) and a wait. It only plays cues; game.ts decided them.
-const CUE_MS: Record<Cue["kind"], number> = { cast: 350, fizzle: 600, hit: 500, immune: 500, "instant-kill": 700, "attack-lands": 350, shield: 300, hurt: 500, "barrier-shatter": 700, "enemy-death": 700, "player-death": 700 };
+const CUE_MS: Record<Cue["kind"], number> = { cast: 350, fizzle: 600, hit: 500, immune: 500, hollow: 600, "instant-kill": 700, "attack-lands": 350, shield: 300, hurt: 500, "barrier-shatter": 700, "enemy-death": 700, "player-death": 700 };
 type RevealUi = { stage: HTMLElement; portrait: HTMLElement; enemyBar: HTMLElement; you: HTMLElement; resultBox: HTMLElement; banner: HTMLElement };
 
 async function playReveal(cues: Cue[], ui: RevealUi, lines: string[], after: Run, enemyMaxHp: number) {
@@ -80,6 +80,11 @@ async function playReveal(cues: Cue[], ui: RevealUi, lines: string[], after: Run
       case "immune":
         fx(ui.portrait, "immune");
         float(ui.portrait, "immune");
+        say(lines[0]);
+        break;
+      case "hollow":
+        ui.stage.append(el("i", "puff"));
+        float(ui.portrait, "hollow");
         say(lines[0]);
         break;
       case "instant-kill":
@@ -178,7 +183,8 @@ function renderLog(): HTMLElement {
             el("b", "", `Turn ${e.turn}`),
             el("q", "", e.spell),
             el("small", "", e.attack),
-            el("div", "scores", el("span", "", `Offence ${pips(e.offence)}`), el("span", "", e.immune ? "immune" : e.instantKill ? "instant kill" : `−${e.enemyHpLost} enemy HP`)),
+            el("div", "scores", el("span", "", `Offence ${pips(e.offence)}`), el("span", "", e.immune ? "immune" : e.hollow ? "hollow" : e.instantKill ? "instant kill" : `−${e.enemyHpLost} enemy HP`)),
+            ...(e.reason ? [el("small", "", e.reason)] : []),
             el("div", "scores", el("span", "", `Defence ${e.instantKill ? "—" : pips(e.defence)}`), el("span", "", `−${e.playerHpLost} HP`)),
           ),
   );
@@ -255,7 +261,7 @@ function render() {
     cast.textContent = "Judging…";
     stage.classList.add("judging");
     const stopShimmer = shimmer();
-    let verdict: { forbidden: string; offence: number; defence: number; immune: boolean };
+    let verdict: { forbidden: string; offence: number; defence: number; immune: boolean; hollow: boolean };
     try {
       const res = await fetch("/api/judge", {
         method: "POST",
@@ -283,14 +289,16 @@ function render() {
       log = logFizzle(log, input.value, label);
     } else {
       run = applyCast(run, enemy, verdict);
-      log = logTurn(log, input.value, attack, enemy, verdict, before, run);
       const offence = offenceOf(verdict);
       const instant = enemy.instantKill && offence === 5;
+      const reason = verdict.immune && enemy.immunity ? immuneReason(enemy.immunity.to) : verdict.hollow ? HOLLOW_REASON : "";
+      log = logTurn(log, input.value, attack, enemy, verdict, before, run, reason);
       lines = [
-        `${(verdict.immune && enemy.immunity?.line) || (instant ? INSTANT_KILL_LINE : OFFENCE_LINES[offence])} (−${before.enemyHp - run.enemyHp} enemy HP)`,
+        `${(verdict.immune && enemy.immunity?.line) || (verdict.hollow && HOLLOW_LINE) || (instant ? INSTANT_KILL_LINE : OFFENCE_LINES[offence])} (−${before.enemyHp - run.enemyHp} enemy HP)`,
         // Only an instant kill stops the attack, so only then is there no defence line to show.
         `${instant ? KILL_LINE : DEFENCE_LINES[verdict.defence]} (−${before.playerHp - run.playerHp} HP)`,
-        `Offence ${offence}/5 · Defence ${verdict.defence}/5`,
+        `Offence ${offence}/5${offence < verdict.offence ? ` (the Judge scored it ${verdict.offence}/5)` : ""} · Defence ${verdict.defence}/5`,
+        ...(reason ? [reason] : []),
       ];
       turn++;
       hand = drawHand();

@@ -54,7 +54,7 @@ The AI that reads the same text the player reads and scores a Cast.
 _Avoid_: Model, AI, referee
 
 **Verdict**:
-The Judge's complete answer to one Cast: Forbidden category, Offence, Defence and Immunity.
+The Judge's complete answer to one Cast: Forbidden category, Offence, Defence, Hollow and Immunity.
 _Avoid_: Result, response, score
 
 **Offence**:
@@ -68,6 +68,10 @@ _Avoid_: Block, guard score
 **Immunity**:
 A kind of magic, shown to the player up front, that cannot hurt a particular enemy.
 _Avoid_: Resistance, weakness
+
+**Hollow**:
+A Spell that only declares its result or claims power without any means. The Judge flags it separately, and its Offence is negated to 0 whatever it scored.
+_Avoid_: No-mechanism, empty, "I win" spell
 
 **Instant kill**:
 An Offence of 5 against a non-boss enemy, which ends the Battle before the Attack lands.
