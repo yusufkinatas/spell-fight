@@ -1,5 +1,6 @@
 import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, WIN_LINE } from "./content.ts";
-import { TUNING, applyCast, canCast, drawHand, isWon, newRun, nextEnemy, offenceOf, usedHandWords } from "./game.ts";
+import { TUNING, applyCast, canCast, drawHand, isWon, newRun, nextEnemy, offenceOf, usedHandWords, wordCount } from "./game.ts";
+import { icon } from "./icons.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
@@ -8,35 +9,47 @@ let turn = 0;
 let hand = drawHand();
 let result = "";
 
-function bar(label: string, hp: number, max: number): HTMLElement {
-  const row = document.createElement("label");
-  const meter = document.createElement("progress");
-  meter.max = max;
-  meter.value = hp;
-  row.append(`${label} ${hp}/${max} `, meter);
-  return row;
+// `el("p", "cls", ...children)`: strings become text nodes.
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", ...children: (Node | string)[]): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  node.className = className;
+  node.append(...children);
+  return node;
 }
 
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, text: string): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  node.textContent = text;
-  return node;
+function hpBar(label: string, hp: number, max: number): HTMLElement {
+  const fill = el("div", "hp-fill");
+  fill.style.width = `${(100 * hp) / max}%`;
+  const row = el("div", "hp", icon("glass-heart"), el("div", "hp-track", fill), el("span", "", `${hp}/${max}`));
+  row.title = label;
+  return row;
 }
 
 function render() {
   const enemy = ENEMIES[run.enemy];
   const phaseChange = ENEMIES[run.enemy + 1]?.name === enemy.name; // boss phase 1: the next entry is the same boss
-  app.replaceChildren(
-    el("h1", `${enemy.emoji} ${enemy.name}`),
-    el("p", enemy.description),
-    ...(enemy.immunity ? [el("p", `🛡️ Immune to ${enemy.immunity.to}.`)] : []),
-    bar("Enemy", run.enemyHp, enemy.hp),
-    bar("You", run.playerHp, TUNING.playerHp),
-    el("pre", result),
+  const stage = el(
+    "div",
+    "stage",
+    el(
+      "div",
+      "enemy",
+      el("div", phaseChange ? "portrait barrier" : "portrait", icon(enemy.portrait)),
+      el(
+        "div",
+        "enemy-info",
+        el("h1", "", enemy.name),
+        el("p", "", enemy.description),
+        ...(enemy.immunity ? [el("div", "badge", icon("checked-shield"), ` Immune to ${enemy.immunity.to}`)] : []),
+        hpBar("Enemy HP", run.enemyHp, enemy.hp),
+      ),
+    ),
   );
+  const you = hpBar("Your HP", run.playerHp, TUNING.playerHp);
+  app.replaceChildren(el("div", "battle", stage));
   if (run.enemyHp === 0 || run.playerHp === 0) {
     const ended = run.playerHp === 0 || isWon(run);
-    const next = el("button", run.playerHp === 0 ? "Restart" : ended ? "Play again" : phaseChange ? "Fight on" : "Next enemy");
+    const next = el("button", "", run.playerHp === 0 ? "Restart" : ended ? "Play again" : phaseChange ? "Fight on" : "Next enemy");
     next.onclick = () => {
       run = ended ? newRun() : nextEnemy(run);
       turn = 0;
@@ -44,24 +57,30 @@ function render() {
       hand = drawHand();
       render();
     };
-    app.append(el("h2", run.playerHp === 0 ? LOSE_LINE : ended ? WIN_LINE : phaseChange ? BARRIER_BREAKS_LINE : `The ${enemy.name} falls.`), next);
+    stage.append(el("div", "result", result), el("div", "end", el("h2", "", run.playerHp === 0 ? LOSE_LINE : ended ? WIN_LINE : phaseChange ? BARRIER_BREAKS_LINE : `The ${enemy.name} falls.`), next), you);
     next.focus();
     return;
   }
 
   const attack = enemy.attacks[turn % enemy.attacks.length];
-  const words = el("p", "");
-  const chips = hand.map((word) => words.appendChild(el("span", word)));
-  const input = el("textarea", "");
+  const tiles = hand.map((word) => el("span", "tile", word));
+  const input = el("textarea");
   input.rows = 2;
-  input.placeholder = `Use at least ${TUNING.minHandWords} of your words, at most ${TUNING.maxSpellWords} words in total.`;
-  const cast = el("button", "Cast");
-  cast.disabled = true;
-  input.oninput = () => {
+  input.placeholder = "Write your spell…";
+  const usedCount = el("span");
+  const total = el("span");
+  const cast = el("button", "", "Cast");
+  const update = () => {
     const used = usedHandWords(input.value, hand);
-    chips.forEach((chip, i) => chip.classList.toggle("used", used.includes(hand[i])));
+    tiles.forEach((tile, i) => tile.classList.toggle("used", used.includes(hand[i])));
+    usedCount.textContent = `${used.length}/${TUNING.minHandWords} Hand words`;
+    usedCount.className = used.length >= TUNING.minHandWords ? "ok" : "";
+    total.textContent = `${wordCount(input.value)}/${TUNING.maxSpellWords} words`;
+    total.className = wordCount(input.value) > TUNING.maxSpellWords ? "over" : "";
     cast.disabled = !canCast(input.value, hand);
   };
+  input.oninput = update;
+  update();
   cast.onclick = async () => {
     cast.disabled = input.disabled = true;
     cast.textContent = "Judging…";
@@ -98,7 +117,12 @@ function render() {
       cast.disabled = input.disabled = false;
     }
   };
-  app.append(el("h2", `⚔️ ${attack}`), words, input, cast);
+  stage.append(
+    el("div", "attack", icon("crossed-swords"), el("div", "", el("small", "", "Incoming"), attack)),
+    el("div", "result", result),
+    el("div", "hand", ...tiles),
+    el("div", "casting", el("div", "scroll", input, el("div", "limits", usedCount, total)), el("div", "cast-row", you, cast)),
+  );
   input.focus();
 }
 

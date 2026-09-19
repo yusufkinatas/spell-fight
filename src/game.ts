@@ -21,10 +21,10 @@ export function usedHandWords(spell: string, hand: string[]): string[] {
   return hand.filter((word) => tokens.some((t) => t.startsWith(stem(word))));
 }
 
-export function canCast(spell: string, hand: string[]): boolean {
-  const total = spell.trim().split(/\s+/).filter(Boolean).length;
-  return total <= TUNING.maxSpellWords && usedHandWords(spell, hand).length >= TUNING.minHandWords;
-}
+export const wordCount = (spell: string) => spell.trim().split(/\s+/).filter(Boolean).length;
+
+export const canCast = (spell: string, hand: string[]) =>
+  wordCount(spell) <= TUNING.maxSpellWords && usedHandWords(spell, hand).length >= TUNING.minHandWords;
 
 export function drawHand(random = Math.random): string[] {
   const pool = [...WORDS];
