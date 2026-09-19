@@ -60,6 +60,33 @@ export const ENEMIES: Enemy[] = [
       "The wraith wraps itself around you as a whirlwind of choking smoke and embers.",
     ],
   },
+  // Final boss: two consecutive entries sharing a name. Phase 1 is the barrier, phase 2 the dragon itself. Neither can be instant-killed.
+  {
+    emoji: "🔮",
+    name: "Elder Dragon",
+    description: "A huge old dragon coiled inside a dome of shimmering magical force. Nothing can touch the dragon while the dome holds, so every spell strikes the dome itself.",
+    hp: 10,
+    power: 5,
+    instantKill: false,
+    attacks: [
+      "The dragon roars from inside its dome and heavy stones rain down on you from the ceiling.",
+      "The dragon's tail lashes out through the dome and sweeps across the floor at your legs.",
+      "The dome flares and a ring of crackling force rushes outward at you.",
+    ],
+  },
+  {
+    emoji: "🐉",
+    name: "Elder Dragon",
+    description: "A huge old dragon of thick scales, claws and leathery wings, its dome gone, enraged and breathing fire.",
+    hp: 14,
+    power: 6,
+    instantKill: false,
+    attacks: [
+      "The dragon breathes a river of white-hot fire across the whole hall.",
+      "The dragon leaps into the air and dives at you with both claws open.",
+      "The dragon beats its wings and a gale hurls you toward the jagged wall while its jaws snap at you.",
+    ],
+  },
 ];
 
 export const WORDS = [
@@ -92,6 +119,8 @@ export const DEFENCE_LINES = [
 
 export const INSTANT_KILL_LINE = "A perfect spell. The enemy is destroyed before it can strike.";
 export const KILL_LINE = "The enemy falls before its attack lands.";
+// Shown when a boss phase falls and the next entry has the same name.
+export const BARRIER_BREAKS_LINE = "💥 The barrier shatters before the attack lands. The boss stands exposed!";
 export const WIN_LINE = "🏆 The last enemy falls. You win!";
 export const LOSE_LINE = "💀 You have fallen. The run starts again from the first enemy.";
 

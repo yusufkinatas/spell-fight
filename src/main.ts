@@ -1,4 +1,4 @@
-import { DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, WIN_LINE } from "./content.ts";
+import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, WIN_LINE } from "./content.ts";
 import { TUNING, applyCast, canCast, drawHand, isWon, newRun, nextEnemy, offenceOf, usedHandWords } from "./game.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -25,6 +25,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, text: string): HTMLEl
 
 function render() {
   const enemy = ENEMIES[run.enemy];
+  const phaseChange = ENEMIES[run.enemy + 1]?.name === enemy.name; // boss phase 1: the next entry is the same boss
   app.replaceChildren(
     el("h1", `${enemy.emoji} ${enemy.name}`),
     el("p", enemy.description),
@@ -35,7 +36,7 @@ function render() {
   );
   if (run.enemyHp === 0 || run.playerHp === 0) {
     const ended = run.playerHp === 0 || isWon(run);
-    const next = el("button", run.playerHp === 0 ? "Restart" : ended ? "Play again" : "Next enemy");
+    const next = el("button", run.playerHp === 0 ? "Restart" : ended ? "Play again" : phaseChange ? "Fight on" : "Next enemy");
     next.onclick = () => {
       run = ended ? newRun() : nextEnemy(run);
       turn = 0;
@@ -43,7 +44,7 @@ function render() {
       hand = drawHand();
       render();
     };
-    app.append(el("h2", run.playerHp === 0 ? LOSE_LINE : ended ? WIN_LINE : `The ${enemy.name} falls.`), next);
+    app.append(el("h2", run.playerHp === 0 ? LOSE_LINE : ended ? WIN_LINE : phaseChange ? BARRIER_BREAKS_LINE : `The ${enemy.name} falls.`), next);
     next.focus();
     return;
   }
@@ -82,7 +83,7 @@ function render() {
       const offence = offenceOf(verdict);
       const instant = enemy.instantKill && offence === 5;
       // An enemy killed by the spell never lands its attack, so there is no defence line to show.
-      const defenceLine = run.enemyHp === 0 ? KILL_LINE : DEFENCE_LINES[verdict.defence];
+      const defenceLine = run.enemyHp === 0 ? (phaseChange ? "The barrier falls before the attack lands." : KILL_LINE) : DEFENCE_LINES[verdict.defence];
       result =
         `${(verdict.immune && enemy.immunity?.line) || (instant ? INSTANT_KILL_LINE : OFFENCE_LINES[offence])} (−${before.enemyHp - run.enemyHp} enemy HP)\n` +
         `${defenceLine} (−${before.playerHp - run.playerHp} HP)\n` +

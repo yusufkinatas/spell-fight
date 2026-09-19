@@ -48,6 +48,17 @@ while (run.enemy < ENEMIES.length - 1) run = nextEnemy(run);
 assert.equal(isWon(run), false);
 assert.equal(isWon({ ...run, enemyHp: 0 }), true);
 
+// Final boss: the last two entries share a name and are exempt from instant kill. Offence 5 deals 6 and the boss
+// still attacks; breaking the barrier neither heals nor hurts the player; only phase 2's death wins.
+const [barrier, boss] = ENEMIES.slice(-2);
+assert.equal(barrier.name, boss.name);
+assert.deepEqual(ENEMIES.map((e) => e.instantKill), ENEMIES.map((_, i) => i < ENEMIES.length - 2));
+for (const phase of [barrier, boss])
+  assert.deepEqual(applyCast({ enemy: 0, enemyHp: phase.hp, playerHp: 20 }, phase, { offence: 5, defence: 0 }), { enemy: 0, enemyHp: phase.hp - 6, playerHp: 20 - phase.power });
+run = applyCast({ enemy: ENEMIES.length - 2, enemyHp: 6, playerHp: 9 }, barrier, { offence: 5, defence: 0 });
+assert.equal(isWon(run), false, "breaking the barrier is not a win");
+assert.deepEqual(nextEnemy(run), { enemy: ENEMIES.length - 1, enemyHp: boss.hp, playerHp: 9 }, "no heal on phase change");
+
 // Content shape: 3 attacks each, difficulty rises, ~70 words.
 assert.ok(ENEMIES.every((e) => e.attacks.length === 3));
 assert.ok(ENEMIES.every((e, i) => i === 0 || e.power >= ENEMIES[i - 1].power));
