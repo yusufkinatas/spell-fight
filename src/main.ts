@@ -187,8 +187,8 @@ function renderLog(): HTMLElement {
 
 function render() {
   if (!started) return renderTitle();
-  music(run.enemy >= ENEMIES.length - 2 ? "boss" : "fight"); // the boss is the last two entries; one track for both Phases
   const enemy = ENEMIES[run.enemy];
+  music(enemy.music);
   const phaseChange = isPhaseChange(run);
   // The Barrier ring is up only while Phase 1 lives; a fallen enemy stays faded on the end screen.
   const portrait = el("div", run.enemyHp === 0 ? "portrait dead" : phaseChange ? "portrait barrier" : "portrait", icon(enemy.portrait));

@@ -1,14 +1,17 @@
 // All game content: enemies, their attacks, the word pool and every line of feedback text.
 // DRAFT — edit freely. No logic lives here; the rules are in game.ts.
 
-// `instantKill`: offence 5 kills this enemy outright, before its attack lands. `portrait` names a glyph in icons.ts, never judged.
+// `instantKill`: offence 5 kills this enemy outright, before its attack lands. `portrait` names a glyph in icons.ts, never judged. `music` names a track in audio.ts; both boss Phases share one so it plays on through the Phase change.
 // `immunity`: shown on the enemy card as "Immune to <to>." A spell that mainly relies on <to> does 0 damage and shows `line`.
-export type Enemy = { portrait: string; name: string; description: string; hp: number; power: number; instantKill: boolean; attacks: string[]; immunity?: { to: string; line: string } };
+import type { Slot } from "./audio.ts";
+
+export type Enemy = { portrait: string; music: Slot; name: string; description: string; hp: number; power: number; instantKill: boolean; attacks: string[]; immunity?: { to: string; line: string } };
 
 // `name` and `description` are shown to the player and sent to the judge unchanged.
 export const ENEMIES: Enemy[] = [
   {
     portrait: "rock-golem",
+    music: "golem",
     name: "Clay Golem",
     description: "A giant of wet river clay, slow and heavy.",
     hp: 8,
@@ -22,6 +25,7 @@ export const ENEMIES: Enemy[] = [
   },
   {
     portrait: "crowned-skull",
+    music: "knight",
     name: "Skeleton Knight",
     description: "The bones of a dead knight in rusted plate armour, tireless and quick with its sword.",
     hp: 10,
@@ -35,6 +39,7 @@ export const ENEMIES: Enemy[] = [
   },
   {
     portrait: "witch-face",
+    music: "witch",
     name: "Bog Witch",
     description: "A withered crone of the black marsh who brews poisons and commands its crawling things.",
     hp: 12,
@@ -48,6 +53,7 @@ export const ENEMIES: Enemy[] = [
   },
   {
     portrait: "ifrit",
+    music: "wraith",
     name: "Fire Wraith",
     description: "A ghost of living flame and smoke with no solid body, drifting above the ground.",
     hp: 12,
@@ -63,6 +69,7 @@ export const ENEMIES: Enemy[] = [
   // Final boss: two consecutive entries sharing a name. Phase 1 is the barrier, phase 2 the dragon itself. Neither can be instant-killed.
   {
     portrait: "dragon-head",
+    music: "boss",
     name: "Elder Dragon",
     description: "A huge old dragon coiled inside a dome of shimmering magical force. Nothing can touch the dragon while the dome holds, so every spell strikes the dome itself.",
     hp: 10,
@@ -76,6 +83,7 @@ export const ENEMIES: Enemy[] = [
   },
   {
     portrait: "dragon-head",
+    music: "boss",
     name: "Elder Dragon",
     description: "A huge old dragon of thick scales, claws and leathery wings, its dome gone, enraged and breathing fire.",
     hp: 14,

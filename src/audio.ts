@@ -1,5 +1,5 @@
 // All audio: synthesized effects, music and settings. It plays what it is told to; it decides nothing.
-// Effects are WebAudio oscillators, noise and envelopes: no audio files. Music is three OGG files in public/music.
+// Effects are WebAudio oscillators, noise and envelopes: no audio files. Music is one OGG file per slot in public/music.
 
 import type { Cue } from "./game.ts";
 
@@ -158,7 +158,10 @@ export function shimmer(): () => void {
 // itself (for tracks with an ending); 0 means the file is a seamless loop and plays gapless.
 const TRACKS = {
   title: { url: "/music/title.ogg", crossfade: 5 }, // "Ossuary 1 - A Beginning", Kevin MacLeod
-  fight: { url: "/music/fight.ogg", crossfade: 4 }, // "Clash Defiant", Kevin MacLeod
+  golem: { url: "/music/golem.ogg", crossfade: 4 }, // "Clash Defiant", Kevin MacLeod
+  knight: { url: "/music/knight.ogg", crossfade: 4 }, // "Unholy Knight", Kevin MacLeod
+  witch: { url: "/music/witch.ogg", crossfade: 4 }, // "Moorland", Kevin MacLeod
+  wraith: { url: "/music/wraith.ogg", crossfade: 4 }, // "Volatile Reaction", Kevin MacLeod
   boss: { url: "/music/boss.ogg", crossfade: 0 }, // "Epic Boss Battle", Juhani Junkala
 };
 export type Slot = keyof typeof TRACKS;
