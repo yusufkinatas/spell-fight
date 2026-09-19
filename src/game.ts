@@ -1,4 +1,6 @@
-// Pure game rules and content. No DOM, no network: the test script imports this.
+// Pure game rules (content lives in content.ts). No DOM, no network: the test script imports this.
+
+import { ENEMIES, WORDS, type Enemy } from "./content.ts";
 
 // Every tunable number lives here.
 export const TUNING = {
@@ -6,63 +8,9 @@ export const TUNING = {
   handSize: 6,
   minHandWords: 3,
   maxSpellWords: 15,
-  // offence level -> damage dealt. ponytail: level 5 becomes an instant kill in a later ticket.
-  offenceDamage: [0, 1, 2, 3, 4, 5],
+  // offence level -> damage dealt. Level 5 is an instant kill instead when the enemy has `instantKill`.
+  offenceDamage: [0, 1, 2, 3, 4, 6],
   defenceLevels: 5, // damage taken = attack power x (5 - defence) / 5, rounded
-};
-
-export type Enemy = { name: string; description: string; hp: number; power: number; attacks: string[] };
-
-// `name` and `description` are shown to the player and sent to the judge unchanged.
-export const ENEMIES: Enemy[] = [
-  {
-    name: "Clay Golem",
-    description: "A giant of wet river clay, slow and heavy.",
-    hp: 8,
-    power: 3,
-    attacks: [
-      "The golem swings its huge fist down at you.",
-      "The golem hurls a boulder of hardened clay at your chest.",
-      "The golem stamps the ground and a wave of mud rushes at your legs.",
-    ],
-  },
-];
-
-export const WORDS = [
-  "river", "thorn", "mirror", "ash", "whisper", "iron", "flame", "frost", "storm", "stone",
-  "shadow", "light", "wind", "root", "salt", "bone", "blood", "moon", "sun", "star",
-  "mist", "ember", "glass", "silver", "copper", "rust", "dust", "sand", "wave", "tide",
-  "rain", "thunder", "spark", "smoke", "vine", "moss", "web", "wing", "claw", "fang",
-  "serpent", "raven", "wolf", "moth", "spider", "bind", "shatter", "drown", "burn", "freeze",
-  "wither", "bloom", "sing", "weave", "shield", "wall", "cage", "chain", "blade", "arrow",
-  "hammer", "bell", "dream", "sleep", "memory", "silence", "echo", "hunger", "time", "void",
-];
-
-export const OFFENCE_LINES = [
-  "Your spell does nothing to the enemy.",
-  "A feeble strike. The enemy barely notices.",
-  "A glancing hit. The enemy is scratched.",
-  "A solid hit. The enemy is hurt.",
-  "A heavy blow. The enemy staggers.",
-  "A devastating strike. The enemy is torn apart.",
-];
-
-export const DEFENCE_LINES = [
-  "You do nothing to protect yourself. The attack lands in full.",
-  "Your ward barely slows the attack.",
-  "Your ward takes the edge off, but most of the attack gets through.",
-  "Your ward holds against most of the attack.",
-  "Your ward turns the attack aside. Only a graze reaches you.",
-  "The attack is stopped completely.",
-];
-
-export const FIZZLE_LINE = "The spell fizzles.";
-// Keys match the judge's forbidden options (src/judge.ts); the test checks they stay in sync.
-export const FORBIDDEN_LABELS: Record<string, string> = {
-  swearing: "swearing or slurs",
-  sexual: "sexual content",
-  religious: "religious claim or insult",
-  judge: "addressing the judge",
 };
 
 // ponytail: crude stem (drop a final "e" so flame matches flaming); "ash" also matches "ashamed". Real stemmer if players notice.
@@ -88,11 +36,19 @@ export const damageDealt = (offence: number) => TUNING.offenceDamage[offence];
 export const damageTaken = (power: number, defence: number) =>
   Math.round((power * (TUNING.defenceLevels - defence)) / TUNING.defenceLevels);
 
-export type Fight = { enemyHp: number; playerHp: number };
+// `enemy` indexes ENEMIES. Player HP carries over between fights; there is no healing.
+export type Run = { enemy: number; enemyHp: number; playerHp: number };
+
+export const newRun = (): Run => ({ enemy: 0, enemyHp: ENEMIES[0].hp, playerHp: TUNING.playerHp });
+
+export const nextEnemy = (run: Run): Run => ({ ...run, enemy: run.enemy + 1, enemyHp: ENEMIES[run.enemy + 1].hp });
+
+export const isWon = (run: Run) => run.enemyHp === 0 && run.enemy === ENEMIES.length - 1;
 
 // Offence lands first: an enemy killed this turn does not get its attack in.
-export function applyCast(fight: Fight, power: number, verdict: { offence: number; defence: number }): Fight {
-  const enemyHp = Math.max(0, fight.enemyHp - damageDealt(verdict.offence));
-  const playerHp = enemyHp === 0 ? fight.playerHp : Math.max(0, fight.playerHp - damageTaken(power, verdict.defence));
-  return { enemyHp, playerHp };
+export function applyCast(run: Run, enemy: Pick<Enemy, "power" | "instantKill">, verdict: { offence: number; defence: number }): Run {
+  const kill = enemy.instantKill && verdict.offence === 5;
+  const enemyHp = kill ? 0 : Math.max(0, run.enemyHp - damageDealt(verdict.offence));
+  const playerHp = enemyHp === 0 ? run.playerHp : Math.max(0, run.playerHp - damageTaken(enemy.power, verdict.defence));
+  return { ...run, enemyHp, playerHp };
 }

@@ -6,7 +6,7 @@ export type Cast = {
   spell: string;
 };
 
-// `forbidden` is "none" or a key of FORBIDDEN_LABELS in game.ts; when it is not "none" the scores are ignored.
+// `forbidden` is "none" or a key of FORBIDDEN_LABELS in content.ts; when it is not "none" the scores are ignored.
 export type Verdict = { forbidden: string; defence: number; offence: number };
 
 // Jev judges every level on its own, without seeing its number or its

@@ -1,9 +1,9 @@
-import { DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, OFFENCE_LINES, TUNING, applyCast, canCast, drawHand, usedHandWords } from "./game.ts";
+import { DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, WIN_LINE } from "./content.ts";
+import { TUNING, applyCast, canCast, drawHand, isWon, newRun, nextEnemy, usedHandWords } from "./game.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
-const enemy = ENEMIES[0];
 
-let fight = { enemyHp: enemy.hp, playerHp: TUNING.playerHp };
+let run = newRun();
 let turn = 0;
 let hand = drawHand();
 let result = "";
@@ -24,18 +24,26 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, text: string): HTMLEl
 }
 
 function render() {
-  const over = fight.enemyHp === 0 || fight.playerHp === 0;
+  const enemy = ENEMIES[run.enemy];
   app.replaceChildren(
-    el("h1", `🗿 ${enemy.name}`),
+    el("h1", `${enemy.emoji} ${enemy.name}`),
     el("p", enemy.description),
-    bar("Enemy", fight.enemyHp, enemy.hp),
-    bar("You", fight.playerHp, TUNING.playerHp),
+    bar("Enemy", run.enemyHp, enemy.hp),
+    bar("You", run.playerHp, TUNING.playerHp),
     el("pre", result),
   );
-  if (over) {
-    const again = el("button", fight.enemyHp === 0 ? "Fight again" : "Restart");
-    again.onclick = () => location.reload();
-    app.append(el("h2", fight.enemyHp === 0 ? `🏆 The ${enemy.name} falls. You win!` : "💀 You have fallen. Game over."), again);
+  if (run.enemyHp === 0 || run.playerHp === 0) {
+    const ended = run.playerHp === 0 || isWon(run);
+    const next = el("button", run.playerHp === 0 ? "Restart" : ended ? "Play again" : "Next enemy");
+    next.onclick = () => {
+      run = ended ? newRun() : nextEnemy(run);
+      turn = 0;
+      result = "";
+      hand = drawHand();
+      render();
+    };
+    app.append(el("h2", run.playerHp === 0 ? LOSE_LINE : ended ? WIN_LINE : `The ${enemy.name} falls.`), next);
+    next.focus();
     return;
   }
 
@@ -68,13 +76,14 @@ function render() {
         result = `${FIZZLE_LINE} (${FORBIDDEN_LABELS[verdict.forbidden] ?? verdict.forbidden})`;
         return render();
       }
-      const before = fight;
-      fight = applyCast(fight, enemy.power, verdict);
+      const before = run;
+      run = applyCast(run, enemy, verdict);
+      const instant = enemy.instantKill && verdict.offence === 5;
       // An enemy killed by the spell never lands its attack, so there is no defence line to show.
-      const defenceLine = fight.enemyHp === 0 ? "The enemy falls before its attack lands." : DEFENCE_LINES[verdict.defence];
+      const defenceLine = run.enemyHp === 0 ? KILL_LINE : DEFENCE_LINES[verdict.defence];
       result =
-        `${OFFENCE_LINES[verdict.offence]} (−${before.enemyHp - fight.enemyHp} enemy HP)\n` +
-        `${defenceLine} (−${before.playerHp - fight.playerHp} HP)\n` +
+        `${instant ? INSTANT_KILL_LINE : OFFENCE_LINES[verdict.offence]} (−${before.enemyHp - run.enemyHp} enemy HP)\n` +
+        `${defenceLine} (−${before.playerHp - run.playerHp} HP)\n` +
         `Offence ${verdict.offence}/5 · Defence ${verdict.defence}/5`;
       turn++;
       hand = drawHand();

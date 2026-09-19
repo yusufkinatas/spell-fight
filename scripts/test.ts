@@ -1,6 +1,7 @@
 // Pure game logic checks. Run: npm test
 import assert from "node:assert/strict";
-import { FORBIDDEN_LABELS, TUNING, WORDS, applyCast, canCast, damageTaken, drawHand, usedHandWords } from "../src/game.ts";
+import { ENEMIES, FORBIDDEN_LABELS, WORDS } from "../src/content.ts";
+import { TUNING, applyCast, canCast, damageTaken, drawHand, isWon, newRun, nextEnemy, usedHandWords } from "../src/game.ts";
 import { FORBIDDEN_OPTIONS } from "../src/judge.ts";
 
 const hand = ["river", "thorn", "flame", "ash", "whisper", "iron"];
@@ -23,9 +24,30 @@ assert.equal(new Set(WORDS).size, WORDS.length, "no duplicate pool words");
 
 // HP math: power 3 -> 3,2,2,1,1,0 for defence 0..5.
 assert.deepEqual([0, 1, 2, 3, 4, 5].map((d) => damageTaken(3, d)), [3, 2, 2, 1, 1, 0]);
-assert.deepEqual(applyCast({ enemyHp: 8, playerHp: 20 }, 3, { offence: 4, defence: 1 }), { enemyHp: 4, playerHp: 18 });
-assert.deepEqual(applyCast({ enemyHp: 8, playerHp: 2 }, 3, { offence: 0, defence: 0 }), { enemyHp: 8, playerHp: 0 }, "HP floors at 0");
-assert.deepEqual(applyCast({ enemyHp: 3, playerHp: 1 }, 3, { offence: 3, defence: 0 }), { enemyHp: 0, playerHp: 1 }, "offence first: a dead enemy does not attack");
+const golem = { power: 3, instantKill: true };
+assert.deepEqual(applyCast({ enemy: 0, enemyHp: 8, playerHp: 20 }, golem, { offence: 4, defence: 1 }), { enemy: 0, enemyHp: 4, playerHp: 18 });
+assert.deepEqual(applyCast({ enemy: 0, enemyHp: 8, playerHp: 2 }, golem, { offence: 0, defence: 0 }), { enemy: 0, enemyHp: 8, playerHp: 0 }, "HP floors at 0");
+assert.deepEqual(applyCast({ enemy: 0, enemyHp: 3, playerHp: 1 }, golem, { offence: 3, defence: 0 }), { enemy: 0, enemyHp: 0, playerHp: 1 }, "offence first: a dead enemy does not attack");
+
+// Instant kill: offence 5 kills at any HP and the attack never lands; an enemy that opts out just takes max damage.
+assert.deepEqual(applyCast({ enemy: 0, enemyHp: 99, playerHp: 1 }, golem, { offence: 5, defence: 0 }), { enemy: 0, enemyHp: 0, playerHp: 1 });
+assert.deepEqual(applyCast({ enemy: 0, enemyHp: 14, playerHp: 20 }, { power: 5, instantKill: false }, { offence: 5, defence: 0 }), { enemy: 0, enemyHp: 8, playerHp: 15 });
+
+// The run: 20 HP at enemy 1, player HP carries over with no healing, the win is the last enemy's death.
+assert.deepEqual(newRun(), { enemy: 0, enemyHp: ENEMIES[0].hp, playerHp: 20 });
+let run = applyCast(newRun(), ENEMIES[0], { offence: 0, defence: 0 });
+run = applyCast(run, ENEMIES[0], { offence: 5, defence: 0 });
+assert.equal(isWon(run), false);
+run = nextEnemy(run);
+assert.deepEqual(run, { enemy: 1, enemyHp: ENEMIES[1].hp, playerHp: 20 - ENEMIES[0].power }, "HP carries over");
+while (run.enemy < ENEMIES.length - 1) run = nextEnemy(run);
+assert.equal(isWon(run), false);
+assert.equal(isWon({ ...run, enemyHp: 0 }), true);
+
+// Content shape: 3 attacks each, difficulty rises, ~70 words.
+assert.ok(ENEMIES.every((e) => e.attacks.length === 3));
+assert.ok(ENEMIES.every((e, i) => i === 0 || e.power >= ENEMIES[i - 1].power));
+assert.ok(WORDS.length >= 65 && WORDS.length <= 75);
 
 // Every forbidden category the judge can return has a player-facing label.
 assert.deepEqual(Object.keys(FORBIDDEN_OPTIONS).sort(), ["none", ...Object.keys(FORBIDDEN_LABELS)].sort());
