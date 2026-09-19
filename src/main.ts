@@ -1,4 +1,4 @@
-import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, HOLLOW_LINE, HOLLOW_REASON, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, PREMISE_LINE, WIN_LINE, immuneReason } from "./content.ts";
+import { BARRIER_BREAKS_LINE, BARRIER_BREAKS_LINE_SHORT, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, HOLLOW_LINE, HOLLOW_REASON, HOLLOW_REASON_SHORT, INSTANT_KILL_LINE, INSTANT_KILL_LINE_SHORT, KILL_LINE, LOSE_LINE, LOSE_LINE_SHORT, OFFENCE_LINES, PREMISE_LINE, WIN_LINE, fizzleReasonShort, immuneReason, immuneReasonShort } from "./content.ts";
 import { TUNING, applyCast, canCast, drawHand, isPhaseChange, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, offenceOf, revealCues, usedHandWords, wordCount, type Cue, type LogEntry, type Run } from "./game.ts";
 import { effect, music, playCue, setSetting, settings, shimmer, unlockAudio } from "./audio.ts";
 import { icon } from "./icons.ts";
@@ -64,7 +64,8 @@ async function playReveal(cues: Cue[], ui: RevealUi, lines: string[], after: Run
   };
   const float = (target: HTMLElement, text: string) => target.append(el("b", "float", text));
   ui.resultBox.textContent = "";
-  const say = (line: string) => ui.resultBox.append(line + "\n");
+  // subtract: the slot holds the Turn row instead, and the Reveal already shows what these lines would say.
+  const say = (line: string) => { if (variant !== "subtract") ui.resultBox.append(line + "\n"); };
   for (const cue of cues) {
     if (skipped) break;
     playCue(cue);
@@ -185,6 +186,7 @@ function renderTitle() {
 const pips = (score: number) => "●".repeat(score) + "○".repeat(5 - score);
 
 function renderLog(): HTMLElement {
+  if (variant === "subtract") return el("aside", "log", el("h2", "", "Combat log"), el("ol", "", ...olderEntries().map(turnRow)));
   const entries = log.map((e) =>
     e.kind === "phase"
       ? el("li", "divider", "the barrier breaks")
@@ -203,6 +205,48 @@ function renderLog(): HTMLElement {
   );
   return el("aside", "log", el("h2", "", "Combat log"), entries.length ? el("ol", "", ...entries) : el("p", "", "No spells cast yet."));
 }
+
+// --- variant: subtract ---
+// One Turn is stated once, as one row: the newest on the stage in the slot the result block used (past above the
+// Incoming banner), the older ones in the Combat log, same markup. What the Reveal already shows — hit weight, Hollow,
+// Immune, both HP deltas — is not narrated again; only the lesson and the end heading stay as prose.
+
+// A Phase divider is not a Turn, so it stays in the log and the stage slot is empty until the new Phase is Cast at.
+const stageEntry = () => (log[0]?.kind === "phase" ? undefined : log[0]);
+const olderEntries = () => (stageEntry() ? log.slice(1) : log);
+
+function turnRow(e: LogEntry): HTMLElement {
+  if (e.kind === "phase") return el("li", "divider", "the barrier breaks");
+  if (e.kind === "fizzle") return el("li", "fizzle", el("q", "", e.spell), el("small", "", fizzleReasonShort(e.forbidden)));
+  // The stored reason is the long result copy; the row wants the short one. A Battle's log is all one enemy, so the Immunity is this one's.
+  const immunity = ENEMIES[run.enemy].immunity;
+  const reason = e.immune && immunity ? immuneReasonShort(immunity.to) : e.hollow ? HOLLOW_REASON_SHORT : "";
+  return el(
+    "li",
+    "",
+    el("q", "", e.spell),
+    el("div", "scores", el("span", "", `Offence ${pips(e.offence)}`), el("span", "", e.instantKill ? "enemy destroyed" : e.enemyHpLost ? `−${e.enemyHpLost} enemy HP` : "")),
+    // Only an instant kill stops the Attack, so only then is there no Defence to show; the end heading says why.
+    ...(e.instantKill ? [] : [el("div", "scores", el("span", "", `Defence ${pips(e.defence)}`), el("span", "", e.playerHpLost ? `−${e.playerHpLost} HP` : ""))]),
+    ...(reason ? [el("small", "", reason)] : []),
+  );
+}
+
+const turnSlot = () => {
+  const e = stageEntry();
+  return el("div", "log turn", ...(e ? [el("ol", "", turnRow(e))] : []));
+};
+
+// The end heading, rebuilt from state like everything else render() draws.
+const subEndLine = () => {
+  const last = stageEntry();
+  if (run.playerHp === 0) return LOSE_LINE_SHORT;
+  if (isWon(run)) return WIN_LINE;
+  if (isPhaseChange(run)) return BARRIER_BREAKS_LINE_SHORT;
+  // The row drops its Defence line on an instant kill, so the heading is where "no Attack landed" is said.
+  if (last?.kind === "turn" && last.instantKill) return INSTANT_KILL_LINE_SHORT;
+  return `The ${ENEMIES[run.enemy].name} falls.`;
+};
 
 function render() {
   if (!started) return renderTitle();
@@ -230,7 +274,7 @@ function render() {
     ),
   );
   const you = hpBar("Your HP", run.playerHp, TUNING.playerHp);
-  app.replaceChildren(el("div", "battle", stage, renderLog()));
+  app.replaceChildren(el("div", "battle", stage, ...(variant === "subtract" && !olderEntries().length ? [] : [renderLog()])));
   if (run.enemyHp === 0 || run.playerHp === 0) {
     const ended = run.playerHp === 0 || isWon(run);
     const next = el("button", "", run.playerHp === 0 ? "Restart" : ended ? "Play again" : phaseChange ? "Fight on" : "Next enemy");
@@ -246,7 +290,7 @@ function render() {
       hand = drawHand();
       render();
     };
-    stage.append(el("div", "result", result), el("div", "end", el("h2", "", run.playerHp === 0 ? LOSE_LINE : ended ? WIN_LINE : phaseChange ? BARRIER_BREAKS_LINE : `The ${enemy.name} falls.`), next), you);
+    stage.append(variant === "subtract" ? turnSlot() : el("div", "result", result), el("div", "end", el("h2", "", variant === "subtract" ? subEndLine() : run.playerHp === 0 ? LOSE_LINE : ended ? WIN_LINE : phaseChange ? BARRIER_BREAKS_LINE : `The ${enemy.name} falls.`), next), you);
     next.focus();
     return;
   }
@@ -334,10 +378,9 @@ function render() {
     else if (isWon(run)) effect("win");
   };
   const banner = el("div", "attack", icon("crossed-swords"), el("div", "", el("small", "", "Incoming"), attack));
-  const resultBox = el("div", "result", result);
+  const resultBox = variant === "subtract" ? turnSlot() : el("div", "result", result);
   stage.append(
-    banner,
-    resultBox,
+    ...(variant === "subtract" ? [resultBox, banner] : [banner, resultBox]), // subtract: the Turn just played sits above the Incoming banner, past above future
     el("div", "hand", ...tiles),
     el("div", "casting", el("div", "scroll", input, el("div", "limits", usedCount, total)), el("div", "cast-row", you, cast)),
   );

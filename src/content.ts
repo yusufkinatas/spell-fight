@@ -148,3 +148,12 @@ export const FORBIDDEN_LABELS: Record<string, string> = {
   religious: "religious claim or insult",
   judge: "addressing the judge",
 };
+
+// Short copy for the "subtract" variant, where a Turn is stated once, as one Combat log row: each reason is a single
+// line beside the scores, and the end heading carries what the row no longer says.
+export const HOLLOW_REASON_SHORT = "Hollow: name the force that does the harm, not just the result.";
+export const immuneReasonShort = (to: string) => `Immune: your spell relied on ${to}.`;
+export const fizzleReasonShort = (label: string) => `Fizzled: ${label} — nothing happens, write another.`;
+export const INSTANT_KILL_LINE_SHORT = "Destroyed before it could strike.";
+export const BARRIER_BREAKS_LINE_SHORT = "The barrier shatters.";
+export const LOSE_LINE_SHORT = "You have fallen.";
