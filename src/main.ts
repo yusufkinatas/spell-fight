@@ -11,6 +11,11 @@ let turn = 0;
 let hand = drawHand();
 let result = "";
 let log: LogEntry[] = []; // the current Battle's Combat log
+let runId = crypto.randomUUID(); // groups one Run's analytics events
+
+// Analytics: PostHog comes from the snippet in index.html, and is absent in local dev.
+// ponytail: client-side capture, so ad blockers lose those players. Proxy PostHog through a Vercel rewrite if the gap matters.
+const track = (event: string, props: object = {}) => (window as { posthog?: { capture(event: string, props: object): void } }).posthog?.capture(event, { run_id: runId, ...props });
 
 // `el("p", "cls", ...children)`: strings become text nodes.
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", ...children: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -141,6 +146,7 @@ function renderTitle() {
   begin.onclick = () => {
     unlockAudio();
     started = true;
+    track("run_started");
     render();
   };
   app.replaceChildren(
@@ -162,7 +168,7 @@ function renderTitle() {
         link("https://incompetech.com", "incompetech.com"),
         ", ",
         link("https://creativecommons.org/licenses/by/4.0/", "CC BY 4.0 — creativecommons.org/licenses/by/4.0"),
-        ") and Juhani Junkala (CC0).",
+        ") and Juhani Junkala (CC0). Spells and visits are logged anonymously to improve the game.",
       ),
     ),
   );
@@ -224,6 +230,10 @@ function render() {
     next.onclick = () => {
       log = ended ? [] : logNextEnemy(log, run);
       run = ended ? newRun() : nextEnemy(run);
+      if (ended) {
+        runId = crypto.randomUUID();
+        track("run_started");
+      }
       turn = 0;
       result = "";
       hand = drawHand();
@@ -272,6 +282,7 @@ function render() {
       verdict = await res.json();
     } catch (e) {
       console.error(e);
+      track("judge_failed", { enemy: enemy.name, error: String(e) });
       // Same hand, same attack: the player can simply cast again.
       cast.textContent = "The judge is silent. Cast again";
       cast.disabled = input.disabled = false;
@@ -281,6 +292,7 @@ function render() {
       stage.classList.remove("judging");
     }
     const before = run;
+    const [castTurn, castHand] = [turn, hand]; // as the player saw them: a judged Cast advances both
     let lines: string[];
     if (verdict.forbidden !== "none") {
       // Free retry: no HP change, same hand, same attack. The scores are ignored.
@@ -303,6 +315,8 @@ function render() {
       turn++;
       hand = drawHand();
     }
+    track("cast", { enemy: enemy.name, enemy_index: before.enemy, turn: castTurn, attack, hand: castHand, spell: input.value, ...verdict, enemy_hp_before: before.enemyHp, enemy_hp_after: run.enemyHp, player_hp_before: before.playerHp, player_hp_after: run.playerHp });
+    if (run.playerHp === 0 || isWon(run)) track("run_ended", { outcome: run.playerHp === 0 ? "lost" : "won", enemy: enemy.name, enemy_index: run.enemy, player_hp: run.playerHp });
     result = lines.join("\n");
     await playReveal(revealCues(verdict, enemy, before, run), { stage, portrait, enemyBar, you, resultBox, banner }, lines, run, enemy.hp);
     render(); // the end state, whether the Reveal played out or was skipped
