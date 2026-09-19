@@ -13,6 +13,13 @@ let result = "";
 let log: LogEntry[] = []; // the current Battle's Combat log
 let runId = crypto.randomUUID(); // groups one Run's analytics events
 
+// Prototype switcher: ←/→ swap battle-screen variants live, so they can be compared mid-Battle.
+// ponytail: throwaway scaffolding. Pick a winner, then delete the switcher and the losing variants.
+const VARIANTS = ["current", "subtract", "disclose", "show", "moment"] as const;
+type Variant = (typeof VARIANTS)[number];
+let variant: Variant = VARIANTS.find((v) => v === localStorage.getItem("variant")) ?? "current";
+let busy = false; // a Cast is being judged or revealed: switching would re-render under it
+
 // Analytics: PostHog comes from the snippet in index.html, and is absent in local dev.
 // ponytail: client-side capture, so ad blockers lose those players. Proxy PostHog through a Vercel rewrite if the gap matters.
 const track = (event: string, props: object = {}) => (window as { posthog?: { capture(event: string, props: object): void } }).posthog?.capture(event, { run_id: runId, ...props });
@@ -267,6 +274,7 @@ function render() {
   input.oninput = update;
   update();
   cast.onclick = async () => {
+    busy = true;
     cast.disabled = input.disabled = true;
     cast.textContent = "Judging…";
     stage.classList.add("judging");
@@ -286,6 +294,7 @@ function render() {
       // Same hand, same attack: the player can simply cast again.
       cast.textContent = "The judge is silent. Cast again";
       cast.disabled = input.disabled = false;
+      busy = false;
       return;
     } finally {
       stopShimmer();
@@ -319,6 +328,7 @@ function render() {
     if (run.playerHp === 0 || isWon(run)) track("run_ended", { outcome: run.playerHp === 0 ? "lost" : "won", enemy: enemy.name, enemy_index: run.enemy, player_hp: run.playerHp });
     result = lines.join("\n");
     await playReveal(revealCues(verdict, enemy, before, run), { stage, portrait, enemyBar, you, resultBox, banner }, lines, run, enemy.hp);
+    busy = false;
     render(); // the end state, whether the Reveal played out or was skipped
     if (run.playerHp === 0) effect("lose");
     else if (isWon(run)) effect("win");
@@ -378,5 +388,23 @@ addEventListener("keydown", (e) => {
   setSetting("music", on);
   for (const button of toggles.children) button.dispatchEvent(new Event("refresh"));
 });
+
+// ←/→ cycle the variants, except while a Spell is half-written (the arrows move the caret there) or a Cast is playing.
+const variantChip = el("div", "variant-chip");
+function setVariant(next: Variant) {
+  variant = next;
+  localStorage.setItem("variant", variant);
+  document.body.dataset.variant = variant;
+  variantChip.textContent = `‹ ${VARIANTS.indexOf(variant) + 1}/${VARIANTS.length} ${variant} ›`;
+}
+addEventListener("keydown", (e) => {
+  const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+  if (!step || busy || !started || (e.target instanceof HTMLTextAreaElement && e.target.value)) return;
+  e.preventDefault();
+  setVariant(VARIANTS[(VARIANTS.indexOf(variant) + step + VARIANTS.length) % VARIANTS.length]);
+  render();
+});
+document.body.append(variantChip);
+setVariant(variant);
 
 render();
