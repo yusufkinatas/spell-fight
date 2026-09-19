@@ -1,4 +1,5 @@
-import { BARRIER_BREAKS_LINE, ENEMIES, FORBIDDEN_LABELS, HOLLOW_HINT, LOSE_LINE, PREMISE_LINE, WIN_LINE, immuneHint, type Enemy } from "./content.ts";
+import { EN, ENEMIES } from "./content.ts";
+import { TR } from "./content.tr.ts";
 import { TUNING, applyCast, canCast, drawHand, isPhaseChange, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, revealCues, usedHandWords, wordCount, type Cue, type LogEntry, type Run } from "./game.ts";
 import { effect, music, playCue, setSetting, settings, shimmer, unlockAudio } from "./audio.ts";
 import { icon } from "./icons.ts";
@@ -6,15 +7,21 @@ import { icon } from "./icons.ts";
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
 let started = false; // the title screen shows until Begin; Restart and Play again never come back to it
+// The language is the player's last choice, else the browser's. Wrapped like the audio settings: a blocked storage never breaks the game.
+const LANG_KEY = "spell-fight.lang";
+let text = navigator.language.startsWith("tr") ? TR : EN;
+try {
+  text = { en: EN, tr: TR }[localStorage.getItem(LANG_KEY)!] ?? text;
+} catch {}
 let run = newRun();
 let turn = 0;
-let hand = drawHand();
+let hand = drawHand(text.words);
 let log: LogEntry[] = []; // the current Battle's Combat log
 let runId = crypto.randomUUID(); // groups one Run's analytics events
 
 // Analytics: PostHog comes from the snippet in index.html, and is absent in local dev.
 // ponytail: client-side capture, so ad blockers lose those players. Proxy PostHog through a Vercel rewrite if the gap matters.
-const track = (event: string, props: object = {}) => (window as { posthog?: { capture(event: string, props: object): void } }).posthog?.capture(event, { run_id: runId, ...props });
+const track = (event: string, props: object = {}) => (window as { posthog?: { capture(event: string, props: object): void } }).posthog?.capture(event, { run_id: runId, lang: text.code, ...props });
 
 // `el("p", "cls", ...children)`: strings become text nodes.
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", ...children: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -80,24 +87,24 @@ async function playReveal(cues: Cue[], ui: RevealUi, after: Run, enemyMaxHp: num
         break;
       case "hit":
         fx(ui.portrait, "hit", cue.intensity / 5);
-        float(ui.portrait, cue.damage ? `−${cue.damage}` : "miss");
+        float(ui.portrait, cue.damage ? `−${cue.damage}` : text.miss);
         setHp(ui.enemyBar, after.enemyHp, enemyMaxHp);
         say();
         break;
       case "immune":
         fx(ui.portrait, "immune");
-        float(ui.portrait, "immune");
+        float(ui.portrait, text.immune.toLocaleLowerCase(text.code));
         say();
         break;
       case "hollow":
         ui.stage.append(el("i", "puff"));
-        float(ui.portrait, "hollow");
+        float(ui.portrait, text.hollow.toLocaleLowerCase(text.code));
         say();
         break;
       case "instant-kill":
         fx(ui.stage, "finisher");
         fx(ui.portrait, "hit");
-        float(ui.portrait, "perfect");
+        float(ui.portrait, text.perfect);
         setHp(ui.enemyBar, 0, enemyMaxHp);
         say();
         say();
@@ -143,7 +150,7 @@ function link(href: string, text: string): HTMLAnchorElement {
 }
 
 function renderTitle() {
-  const begin = el("button", "begin", "Begin");
+  const begin = el("button", "begin", text.begin);
   // A real button press: later the same gesture unlocks audio.
   begin.onclick = () => {
     unlockAudio();
@@ -156,21 +163,21 @@ function renderTitle() {
       "div",
       "title",
       el("div", "portrait", icon("dragon-head")),
-      el("h1", "", "Spell Fight"),
-      el("p", "premise", PREMISE_LINE),
+      el("h1", "", text.title),
+      el("p", "premise", text.premise),
       begin,
       el(
         "p",
         "credits",
-        "Icons by Lorc, Delapouite and Cathelineau (",
+        text.credits[0],
         link("https://game-icons.net", "game-icons.net"),
-        ", ",
+        text.credits[1],
         link("https://creativecommons.org/licenses/by/3.0/", "CC BY 3.0"),
-        "). Music by Kevin MacLeod (",
+        text.credits[2],
         link("https://incompetech.com", "incompetech.com"),
-        ", ",
+        text.credits[3],
         link("https://creativecommons.org/licenses/by/4.0/", "CC BY 4.0 — creativecommons.org/licenses/by/4.0"),
-        ") and Juhani Junkala (CC0). Spells and visits are logged anonymously to improve the game.",
+        text.credits[4],
       ),
     ),
   );
@@ -197,20 +204,23 @@ function verdictRow(glyph: string, score: number, label: string, struck = false,
 // The Offence chip and whether the row is struck: the same for the stage and the Combat log.
 const negatedIn = (e: VerdictTurn) => e.immune || e.hollow;
 const verdictOffence = (e: VerdictTurn) =>
-  e.immune ? verdictChip("tag", "Immune") : e.hollow ? verdictChip("tag", "Hollow") : e.instantKill ? verdictChip("good", "Kill") : e.enemyHpLost ? verdictChip("hit", `−${e.enemyHpLost}`) : undefined;
+  e.immune ? verdictChip("tag", text.immune) : e.hollow ? verdictChip("tag", text.hollow) : e.instantKill ? verdictChip("good", text.kill) : e.enemyHpLost ? verdictChip("hit", `−${e.enemyHpLost}`) : undefined;
 const verdictDefence = (e: VerdictTurn, label: string) =>
-  verdictRow("checked-shield", e.defence, label, false, e.playerHpLost ? verdictChip("hurt", `−${e.playerHpLost}`) : verdictChip("good", "Blocked"));
+  verdictRow("checked-shield", e.defence, label, false, e.playerHpLost ? verdictChip("hurt", `−${e.playerHpLost}`) : verdictChip("good", text.blocked));
 
-function verdictStrip(e: LogEntry | undefined, enemy: Enemy): HTMLElement {
+// The Combat log keeps the Forbidden key, so a Fizzle reads in whatever language is showing now.
+const forbiddenLabel = (key: string) => text.forbidden[key] ?? key;
+
+function verdictStrip(e: LogEntry | undefined, immunity?: string): HTMLElement {
   // Turn 0, a new Battle and the Phase divider all teach the mapping with two empty, labelled rows.
   if (!e || e.kind === "phase")
-    return el("div", "strip legend", verdictRow("crossed-swords", 0, "Offence", false, el("small", "", "Offence")), verdictRow("checked-shield", 0, "Defence", false, el("small", "", "Defence")));
-  if (e.kind === "fizzle") return el("div", "strip", el("div", "vrow flat", verdictChip("tag", "Fizzle"), el("small", "", e.forbidden)));
+    return el("div", "strip legend", verdictRow("crossed-swords", 0, text.offence, false, el("small", "", text.offence)), verdictRow("checked-shield", 0, text.defence, false, el("small", "", text.defence)));
+  if (e.kind === "fizzle") return el("div", "strip", el("div", "vrow flat", verdictChip("tag", text.fizzle), el("small", "", forbiddenLabel(e.forbidden))));
   const negated = negatedIn(e);
-  const hint = e.hollow ? HOLLOW_HINT : e.immune && enemy.immunity ? immuneHint(enemy.immunity.to) : "";
-  const sword = verdictRow("crossed-swords", negated ? e.judged : e.offence, `Offence ${e.offence} of 5`, negated, verdictOffence(e), hint);
+  const hint = e.hollow ? text.hollowHint : e.immune && immunity ? text.immuneHint(immunity) : "";
+  const sword = verdictRow("crossed-swords", negated ? e.judged : e.offence, text.outOf5(text.offence, e.offence), negated, verdictOffence(e), hint);
   // An instant kill stops the Attack, so there is no Defence row to show.
-  return el("div", e.instantKill ? "strip kill" : "strip", sword, ...(e.instantKill ? [] : [verdictDefence(e, `Defence ${e.defence} of 5`)]));
+  return el("div", e.instantKill ? "strip kill" : "strip", sword, ...(e.instantKill ? [] : [verdictDefence(e, text.outOf5(text.defence, e.defence))]));
 }
 
 // The log becomes a history of strips: the Attack (a duplicate of the banner) and the reason (now on stage) drop out.
@@ -220,24 +230,25 @@ const verdictLogRow = (e: VerdictTurn) =>
     "verdict",
     el("b", "", String(e.turn)),
     el("q", "", e.spell),
-    el("div", "scores mini", verdictRow("crossed-swords", negatedIn(e) ? e.judged : e.offence, `Offence ${e.offence} of 5`, negatedIn(e), verdictOffence(e)), ...(e.instantKill ? [] : [verdictDefence(e, `Defence ${e.defence} of 5`)])),
+    el("div", "scores mini", verdictRow("crossed-swords", negatedIn(e) ? e.judged : e.offence, text.outOf5(text.offence, e.offence), negatedIn(e), verdictOffence(e)), ...(e.instantKill ? [] : [verdictDefence(e, text.outOf5(text.defence, e.defence))])),
   );
 
 function renderLog(): HTMLElement {
   const entries = log.map((e) =>
-    e.kind === "phase" ? el("li", "divider", "the barrier breaks") : e.kind === "fizzle" ? el("li", "fizzle", el("q", "", e.spell), el("small", "", `Fizzled: ${e.forbidden}`)) : verdictLogRow(e),
+    e.kind === "phase" ? el("li", "divider", text.logBarrier) : e.kind === "fizzle" ? el("li", "fizzle", el("q", "", e.spell), el("small", "", text.fizzled(forbiddenLabel(e.forbidden)))) : verdictLogRow(e),
   );
-  return el("aside", "log", el("h2", "", "Combat log"), entries.length ? el("ol", "", ...entries) : el("p", "", "No spells cast yet."));
+  return el("aside", "log", el("h2", "", text.logTitle), entries.length ? el("ol", "", ...entries) : el("p", "", text.logEmpty));
 }
 
 function render() {
   if (!started) return renderTitle();
-  const enemy = ENEMIES[run.enemy];
+  const enemy = ENEMIES[run.enemy]; // the rules, and what the Judge reads
+  const shown = text.enemies[run.enemy]; // what the player reads
   music(enemy.music);
   const phaseChange = isPhaseChange(run);
   // The Barrier ring is up only while Phase 1 lives; a fallen enemy stays faded on the end screen.
   const portrait = el("div", run.enemyHp === 0 ? "portrait dead" : phaseChange ? "portrait barrier" : "portrait", icon(enemy.portrait));
-  const enemyBar = hpBar("Enemy HP", run.enemyHp, enemy.hp);
+  const enemyBar = hpBar(text.enemyHp, run.enemyHp, enemy.hp);
   const stage = el(
     "div",
     run.playerHp === 0 ? "stage fallen" : "stage",
@@ -248,18 +259,18 @@ function render() {
       el(
         "div",
         "enemy-info",
-        el("h1", "", enemy.name),
-        el("p", "", enemy.description),
-        ...(enemy.immunity ? [el("div", "badge", icon("checked-shield"), ` Immune to ${enemy.immunity.to}`)] : []),
+        el("h1", "", shown.name),
+        el("p", "", shown.description),
+        ...(shown.immunity ? [el("div", "badge", icon("checked-shield"), ` ${text.immuneBadge(shown.immunity)}`)] : []),
         enemyBar,
       ),
     ),
   );
-  const you = hpBar("Your HP", run.playerHp, TUNING.playerHp);
+  const you = hpBar(text.yourHp,run.playerHp, TUNING.playerHp);
   app.replaceChildren(el("div", "battle", stage, renderLog()));
   if (run.enemyHp === 0 || run.playerHp === 0) {
     const ended = run.playerHp === 0 || isWon(run);
-    const next = el("button", "", run.playerHp === 0 ? "Restart" : ended ? "Play again" : phaseChange ? "Fight on" : "Next enemy");
+    const next = el("button", "", run.playerHp === 0 ? text.restart : ended ? text.playAgain : phaseChange ? text.fightOn : text.nextEnemy);
     next.onclick = () => {
       log = ended ? [] : logNextEnemy(log, run);
       run = ended ? newRun() : nextEnemy(run);
@@ -268,10 +279,10 @@ function render() {
         track("run_started");
       }
       turn = 0;
-      hand = drawHand();
+      hand = drawHand(text.words);
       render();
     };
-    stage.append(el("div", "result", verdictStrip(log[0], enemy)), el("div", "end", el("h2", "", run.playerHp === 0 ? LOSE_LINE : ended ? WIN_LINE : phaseChange ? BARRIER_BREAKS_LINE : `The ${enemy.name} falls.`), next), you);
+    stage.append(el("div", "result", verdictStrip(log[0], shown.immunity)), el("div", "end", el("h2", "", run.playerHp === 0 ? text.lose : ended ? text.win : phaseChange ? text.barrierBreaks : text.falls(shown.name)), next), you);
     next.focus();
     return;
   }
@@ -280,27 +291,27 @@ function render() {
   const tiles = hand.map((word) => el("span", "tile", word));
   const input = el("textarea");
   input.rows = 2;
-  input.placeholder = "Write your spell…";
+  input.placeholder = text.placeholder;
   const usedCount = el("span");
   const total = el("span");
-  const cast = el("button", "", "Cast");
+  const cast = el("button", "", text.cast);
   const update = () => {
-    const used = usedHandWords(input.value, hand);
+    const used = usedHandWords(input.value, hand, text.code);
     tiles.forEach((tile, i) => {
       if (used.includes(hand[i]) && !tile.classList.contains("used")) effect("chime");
       tile.classList.toggle("used", used.includes(hand[i]));
     });
-    usedCount.textContent = `${used.length}/${TUNING.minHandWords} Hand words`;
+    usedCount.textContent = text.handWords(used.length, TUNING.minHandWords);
     usedCount.className = used.length >= TUNING.minHandWords ? "ok" : "";
-    total.textContent = `${wordCount(input.value)}/${TUNING.maxSpellWords} words`;
+    total.textContent = text.wordCount(wordCount(input.value), TUNING.maxSpellWords);
     total.className = wordCount(input.value) > TUNING.maxSpellWords ? "over" : "";
-    cast.disabled = !canCast(input.value, hand);
+    cast.disabled = !canCast(input.value, hand, text.code);
   };
   input.oninput = update;
   update();
   cast.onclick = async () => {
     cast.disabled = input.disabled = true;
-    cast.textContent = "Judging…";
+    cast.textContent = text.judging;
     stage.classList.add("judging");
     const stopShimmer = shimmer();
     let verdict: { forbidden: string; offence: number; defence: number; immune: boolean; hollow: boolean };
@@ -316,7 +327,7 @@ function render() {
       console.error(e);
       track("judge_failed", { enemy: enemy.name, error: String(e) });
       // Same hand, same attack: the player can simply cast again.
-      cast.textContent = "The judge is silent. Cast again";
+      cast.textContent = text.judgeSilent;
       cast.disabled = input.disabled = false;
       return;
     } finally {
@@ -327,26 +338,25 @@ function render() {
     const [castTurn, castHand] = [turn, hand]; // as the player saw them: a judged Cast advances both
     if (verdict.forbidden !== "none") {
       // Free retry: no HP change, same hand, same attack. The scores are ignored.
-      const label = FORBIDDEN_LABELS[verdict.forbidden] ?? verdict.forbidden;
-      log = logFizzle(log, input.value, label);
+      log = logFizzle(log, input.value, verdict.forbidden);
     } else {
       run = applyCast(run, enemy, verdict);
       log = logTurn(log, input.value, attack, enemy, verdict, before, run);
       turn++;
-      hand = drawHand();
+      hand = drawHand(text.words);
     }
     track("cast", { enemy: enemy.name, enemy_index: before.enemy, turn: castTurn, attack, hand: castHand, spell: input.value, ...verdict, enemy_hp_before: before.enemyHp, enemy_hp_after: run.enemyHp, player_hp_before: before.playerHp, player_hp_after: run.playerHp });
     if (run.playerHp === 0 || isWon(run)) track("run_ended", { outcome: run.playerHp === 0 ? "lost" : "won", enemy: enemy.name, enemy_index: run.enemy, player_hp: run.playerHp });
     // The strip is built before the Reveal so each row can land on its own beat.
-    resultBox.replaceChildren(verdictStrip(log[0], enemy));
+    resultBox.replaceChildren(verdictStrip(log[0], shown.immunity));
     await playReveal(revealCues(verdict, enemy, before, run), { stage, portrait, enemyBar, you, resultBox, banner }, run, enemy.hp);
     render(); // the end state, whether the Reveal played out or was skipped
     if (run.playerHp === 0) effect("lose");
     else if (isWon(run)) effect("win");
   };
   // The banner carries the enemy's own Portrait glyph, so the crossed swords mean only "your Offence".
-  const banner = el("div", "attack", icon(enemy.portrait), el("div", "", el("small", "", "Incoming"), attack));
-  const resultBox = el("div", "result", verdictStrip(log[0], enemy));
+  const banner = el("div", "attack", icon(enemy.portrait), el("div", "", el("small", "", text.incoming), shown.attacks[turn % enemy.attacks.length]));
+  const resultBox = el("div", "result", verdictStrip(log[0], shown.immunity));
   stage.append(
     resultBox, // the Turn just played (the past) sits above the Incoming banner (the future)
     banner,
@@ -357,11 +367,11 @@ function render() {
 }
 
 // Audio toggles live in a corner outside #app, so a render never touches them.
-function toggle(key: keyof typeof settings, glyph: string, label: string): HTMLButtonElement {
+function toggle(key: keyof typeof settings, glyph: string): HTMLButtonElement {
   const button = el("button", "", icon(glyph));
   const show = () => {
     button.classList.toggle("off", !settings[key]);
-    button.title = `${label}: ${settings[key] ? "on" : "off"}`;
+    button.title = `${text[key]}: ${settings[key] ? text.on : text.off}`;
     button.setAttribute("aria-label", button.title);
     button.setAttribute("aria-pressed", String(settings[key]));
   };
@@ -373,8 +383,34 @@ function toggle(key: keyof typeof settings, glyph: string, label: string): HTMLB
   show();
   return button;
 }
-const toggles = el("div", "toggles", toggle("music", "double-quaver", "Music"), toggle("effects", "speaker", "Sound effects"));
+// The language button names the other language, in that language: a Turkish player on an English page looks for "Türkçe".
+const langButton = el("button", "lang");
+const refreshToggles = () => {
+  for (const button of toggles.children) button.dispatchEvent(new Event("refresh"));
+};
+function showLang() {
+  const other = text === TR ? EN : TR;
+  langButton.textContent = other.code.toUpperCase();
+  langButton.title = other.langName;
+  langButton.setAttribute("aria-label", other.langName);
+  langButton.lang = other.code;
+  document.documentElement.lang = text.code; // also makes CSS uppercase dot the Turkish İ
+  document.title = text.title;
+}
+langButton.onclick = () => {
+  if (document.querySelector(".judging, .staged")) return; // a Cast in flight finishes in the language it was written in
+  text = text === TR ? EN : TR;
+  try {
+    localStorage.setItem(LANG_KEY, text.code);
+  } catch {}
+  hand = drawHand(text.words); // the Hand is words of the old language; the Attack and the Turn stay
+  showLang();
+  refreshToggles();
+  render();
+};
+const toggles = el("div", "toggles", langButton, toggle("music", "double-quaver"), toggle("effects", "speaker"));
 document.body.append(toggles);
+showLang();
 
 addEventListener("click", (e) => {
   if ((e.target as Element).closest("button")) effect("click");
@@ -398,7 +434,7 @@ addEventListener("keydown", (e) => {
   const on = !(settings.effects || settings.music);
   setSetting("effects", on);
   setSetting("music", on);
-  for (const button of toggles.children) button.dispatchEvent(new Event("refresh"));
+  refreshToggles();
 });
 
 render();

@@ -1,6 +1,9 @@
 /* Dark grimoire: parchment and ink on dark purple, candlelight glow, gold for results. */
 @font-face { font-family: "Crimson Pro"; src: url("/fonts/crimson-pro-400.woff2") format("woff2"); font-display: swap; }
 @font-face { font-family: "Cinzel"; font-weight: 700; src: url("/fonts/cinzel-700.woff2") format("woff2"); font-display: swap; }
+/* The latin-ext halves carry the Turkish ğ ş İ; unicode-range means only a page that shows one downloads them. */
+@font-face { font-family: "Crimson Pro"; src: url("/fonts/crimson-pro-400-ext.woff2") format("woff2"); font-display: swap; unicode-range: U+0100-02BA; }
+@font-face { font-family: "Cinzel"; font-weight: 700; src: url("/fonts/cinzel-700-ext.woff2") format("woff2"); font-display: swap; unicode-range: U+0100-02BA; }
 
 :root {
   --bg: #16131c;
@@ -178,6 +181,7 @@ button:not(:disabled):active { background: var(--purple); }
 /* Audio toggles, top right */
 .toggles { position: fixed; top: 0.5rem; right: 0.5rem; z-index: 4; display: flex; gap: 0.4rem; }
 .toggles button { position: relative; width: 48px; padding: 0; font-size: 1.3rem; background: #1f1a29cc; }
+.toggles .lang { font-size: 0.85rem; letter-spacing: 0.08em; }
 .toggles .off { color: var(--dim); border-color: var(--line); }
 .toggles .off::after { content: ""; position: absolute; inset: 50% 18%; height: 2px; background: currentColor; transform: rotate(-45deg); }
 

@@ -53,6 +53,10 @@ _Avoid_: Banned, moderated, blocked
 The AI that reads the same text the player reads and scores a Cast.
 _Avoid_: Model, AI, referee
 
+**Canon**:
+The English enemy and Attack text, which is what the Judge reads in every language. Another language re-labels the Canon for the player, index for index; only the Spell reaches the Judge as the player wrote it.
+_Avoid_: Source text, original, default language
+
 **Verdict**:
 The Judge's complete answer to one Cast: Forbidden category, Offence, Defence, Hollow and Immunity.
 _Avoid_: Result, response, score
