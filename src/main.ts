@@ -1,4 +1,4 @@
-import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, HOLLOW_LINE, HOLLOW_REASON, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, PREMISE_LINE, WIN_LINE, immuneReason } from "./content.ts";
+import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, HOLLOW_LINE, HOLLOW_REASON, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, MOMENT_FIZZLE_HINT, MOMENT_HOLLOW_HINT, MOMENT_OFFENCE_TITLES, OFFENCE_LINES, PREMISE_LINE, WIN_LINE, immuneReason, momentImmuneHint } from "./content.ts";
 import { TUNING, applyCast, canCast, drawHand, isPhaseChange, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, offenceOf, revealCues, usedHandWords, wordCount, type Cue, type LogEntry, type Run } from "./game.ts";
 import { effect, music, playCue, setSetting, settings, shimmer, unlockAudio } from "./audio.ts";
 import { icon } from "./icons.ts";
@@ -185,7 +185,7 @@ function renderTitle() {
 const pips = (score: number) => "●".repeat(score) + "○".repeat(5 - score);
 
 function renderLog(): HTMLElement {
-  const entries = log.map((e) =>
+  const entries = isMoment() ? log.map(momentRow) : log.map((e) =>
     e.kind === "phase"
       ? el("li", "divider", "the barrier breaks")
       : e.kind === "fizzle"
@@ -201,10 +201,103 @@ function renderLog(): HTMLElement {
             el("div", "scores", el("span", "", `Defence ${e.instantKill ? "—" : pips(e.defence)}`), el("span", "", `−${e.playerHpLost} HP`)),
           ),
   );
-  return el("aside", "log", el("h2", "", "Combat log"), entries.length ? el("ol", "", ...entries) : el("p", "", "No spells cast yet."));
+  return el("aside", "log", el("h2", "", "Combat log"), entries.length ? el("ol", "", ...entries) : el("p", "", isMoment() ? "Nothing cast yet." : "No spells cast yet."));
+}
+
+// --- variant: moment ---
+// The outcome of a Cast is a beat, not a panel: a card over the stage that says its piece once and retires into the
+// Combat log. The resting screen then holds only the present decision (enemy, Incoming, Hand, Spell).
+const isMoment = () => variant === "moment";
+let moment: LogEntry | null = null; // the outcome not yet dismissed; render() rebuilds its card from this
+let dropMoment: (() => void) | null = null; // drops the open card's global listeners, so none outlives its DOM
+
+// A lesson needs longer than the mash that skipped the Reveal.
+const momentGrace = (e: LogEntry) => (e.kind === "fizzle" || (e.kind === "turn" && (e.hollow || e.immune)) ? 900 : 400);
+
+// One Cast's outcome: verdict, one flavour line, the two scores, at most one lesson. Everything comes from the LogEntry.
+function momentCard(e: LogEntry, ...extra: Node[]): HTMLElement {
+  const card = el("div", "moment");
+  card.tabIndex = -1;
+  card.setAttribute("role", "status");
+  card.style.setProperty("--grace", `${momentGrace(e)}ms`); // the dismiss line fades in exactly as the card arms
+  if (e.kind === "fizzle") {
+    card.append(el("h2", "", "Fizzled"), el("p", "flavour", `${FIZZLE_LINE} (${e.forbidden})`), el("p", "hint", MOMENT_FIZZLE_HINT), ...extra);
+  } else if (e.kind === "turn") {
+    const immunity = ENEMIES[run.enemy].immunity;
+    const hint = e.immune && immunity ? momentImmuneHint(immunity.to) : e.hollow ? MOMENT_HOLLOW_HINT : "";
+    const row = (label: string, score: number, tag: string) => el("div", "score", el("span", "label", label), el("span", "pips", pips(score)), el("span", "tag", tag));
+    card.append(
+      el("h2", "", e.immune ? "Immune" : e.hollow ? "Hollow" : e.instantKill ? "Perfect" : MOMENT_OFFENCE_TITLES[e.offence]),
+      // An instant kill stops the Attack, so it has no defence to report.
+      ...(e.instantKill ? [] : [el("p", "flavour", DEFENCE_LINES[e.defence])]),
+      row("Offence", e.offence, e.immune ? "immune" : e.hollow ? "negated" : e.instantKill ? "instant kill" : e.enemyHpLost ? `−${e.enemyHpLost} enemy HP` : "no harm"),
+      ...(e.instantKill ? [] : [row("Defence", e.defence, e.playerHpLost ? `−${e.playerHpLost} HP` : "unhurt")]),
+      ...(hint ? [el("p", "hint", hint)] : []),
+      ...extra,
+    );
+  }
+  if (!extra.length) card.append(el("div", "dismiss", "Tap or press any key"));
+  return card;
+}
+
+// Show that card over the stage. With `extra` (an end line and its button) it is modal: only that button leaves it,
+// so the keypress that skipped a Reveal can never advance the Run.
+function openMoment(e: LogEntry, stage: HTMLElement, ...extra: Node[]) {
+  dropMoment?.(); // one card at a time, and no listener left over from the last one
+  stage.querySelector(".moment")?.remove();
+  const card = momentCard(e, ...extra);
+  stage.append(card);
+  card.focus(); // while it is up the card owns the keyboard: no stray letters, no soft keyboard over the lesson
+  if (extra.length) return;
+  const armed = Date.now() + momentGrace(e);
+  const onKey = (ev: KeyboardEvent) => {
+    // Any key retires the card — but not a held one, not a modifier or a browser shortcut, and not ←/→, which belong
+    // to the prototype switcher: flipping between variants must not eat the moment.
+    if (ev.repeat || ev.metaKey || ev.ctrlKey || ev.altKey || /^(Arrow|Shift|Control|Alt|Meta|CapsLock|F\d)/.test(ev.key)) return;
+    ev.preventDefault(); // the Spell takes focus next, and the dismissing keystroke must not land in it
+    close();
+  };
+  const detach = () => {
+    removeEventListener("keydown", onKey);
+    removeEventListener("pointerdown", close);
+    dropMoment = null;
+  };
+  const close = () => {
+    if (Date.now() < armed) return; // the keypress that skipped the Reveal must not eat the moment either
+    detach();
+    moment = null;
+    card.classList.add("retire");
+    setTimeout(() => card.remove(), 220);
+    document.querySelectorAll(".log li")[log.indexOf(e)]?.classList.add("fresh"); // it retires into its own row
+    app.querySelector("textarea")?.focus();
+  };
+  dropMoment = detach;
+  addEventListener("keydown", onKey);
+  addEventListener("pointerdown", close);
+}
+
+// The log reads as history: two dim lines per Turn, no Attack sentence (only the Incoming banner has one), and the
+// whole row is a button that re-opens that Turn's card. That is why the row need not repeat the lesson.
+function momentRow(e: LogEntry): HTMLElement {
+  if (e.kind === "phase") return el("li", "divider", "the barrier breaks");
+  const meta =
+    e.kind === "fizzle"
+      ? el("div", "meta", el("b", "", "Fizzled"), el("span", "tag", e.forbidden))
+      : el(
+          "div",
+          "meta",
+          el("b", "", `Turn ${e.turn}`),
+          el("span", "tag", e.immune ? "immune" : e.hollow ? "hollow" : e.instantKill ? "instant kill" : MOMENT_OFFENCE_TITLES[e.offence].toLowerCase()),
+          el("span", "", [e.playerHpLost && `you −${e.playerHpLost}`, e.enemyHpLost && `enemy −${e.enemyHpLost}`].filter(Boolean).join(" · ") || "no damage"),
+        );
+  const replay = el("button", "", meta, el("q", "", e.spell));
+  replay.title = "Show this turn again";
+  replay.onclick = () => openMoment(e, document.querySelector<HTMLElement>(".stage")!);
+  return el("li", "", replay);
 }
 
 function render() {
+  dropMoment?.(); // this render replaces the DOM the open card's listeners were closing over
   if (!started) return renderTitle();
   const enemy = ENEMIES[run.enemy];
   music(enemy.music);
@@ -223,7 +316,8 @@ function render() {
         "div",
         "enemy-info",
         el("h1", "", enemy.name),
-        el("p", "", enemy.description),
+        // The description is turn-0 information: in "moment" it retires once the fight is under way.
+        ...(isMoment() && turn > 0 ? [] : [el("p", "", enemy.description)]),
         ...(enemy.immunity ? [el("div", "badge", icon("checked-shield"), ` Immune to ${enemy.immunity.to}`)] : []),
         enemyBar,
       ),
@@ -244,9 +338,15 @@ function render() {
       turn = 0;
       result = "";
       hand = drawHand();
+      moment = null;
       render();
     };
-    stage.append(el("div", "result", result), el("div", "end", el("h2", "", run.playerHp === 0 ? LOSE_LINE : ended ? WIN_LINE : phaseChange ? BARRIER_BREAKS_LINE : `The ${enemy.name} falls.`), next), you);
+    const endLine = run.playerHp === 0 ? LOSE_LINE : ended ? WIN_LINE : phaseChange ? BARRIER_BREAKS_LINE : `The ${enemy.name} falls.`;
+    if (isMoment() && moment) {
+      // The end card is the same card, made modal: the outcome and what it ended, with only its button as the way out.
+      stage.append(you);
+      openMoment(moment, stage, el("h3", "end-line", endLine), next);
+    } else stage.append(el("div", "result", result), el("div", "end", el("h2", "", endLine), next), you);
     next.focus();
     return;
   }
@@ -324,6 +424,7 @@ function render() {
       turn++;
       hand = drawHand();
     }
+    moment = log[0]; // the outcome the "moment" card shows, and re-shows if the variant is switched away and back
     track("cast", { enemy: enemy.name, enemy_index: before.enemy, turn: castTurn, attack, hand: castHand, spell: input.value, ...verdict, enemy_hp_before: before.enemyHp, enemy_hp_after: run.enemyHp, player_hp_before: before.playerHp, player_hp_after: run.playerHp });
     if (run.playerHp === 0 || isWon(run)) track("run_ended", { outcome: run.playerHp === 0 ? "lost" : "won", enemy: enemy.name, enemy_index: run.enemy, player_hp: run.playerHp });
     result = lines.join("\n");
@@ -333,15 +434,18 @@ function render() {
     if (run.playerHp === 0) effect("lose");
     else if (isWon(run)) effect("win");
   };
-  const banner = el("div", "attack", icon("crossed-swords"), el("div", "", el("small", "", "Incoming"), attack));
+  const banner = el("div", "attack", icon("crossed-swords"), el("div", "", el("small", "", isMoment() ? `Incoming · Turn ${turn + 1}` : "Incoming"), attack));
+  // In "moment" the result box is left out of the stage: playReveal still writes to it, so only its animations,
+  // floats, shake and HP tweens land, and the prose goes nowhere.
   const resultBox = el("div", "result", result);
   stage.append(
     banner,
-    resultBox,
+    ...(isMoment() ? [] : [resultBox]),
     el("div", "hand", ...tiles),
     el("div", "casting", el("div", "scroll", input, el("div", "limits", usedCount, total)), el("div", "cast-row", you, cast)),
   );
-  input.focus();
+  if (isMoment() && moment) openMoment(moment, stage);
+  else input.focus();
 }
 
 // Audio toggles live in a corner outside #app, so a render never touches them.

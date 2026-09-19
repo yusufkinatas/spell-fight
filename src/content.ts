@@ -148,3 +148,11 @@ export const FORBIDDEN_LABELS: Record<string, string> = {
   religious: "religious claim or insult",
   judge: "addressing the judge",
 };
+
+// Variant "moment": the outcome shows once, as a card, so its copy is short enough to take in at a glance.
+// The verdict in two or three words. Index = effective Offence 0..5.
+export const MOMENT_OFFENCE_TITLES = ["No harm", "A feeble strike", "A glancing hit", "A solid hit", "A heavy blow", "A devastating strike"];
+// The actionable half of the *_REASON lines; the long ones stay for the other variants.
+export const MOMENT_HOLLOW_HINT = "Say what does the harm, not just that it happens.";
+export const momentImmuneHint = (to: string) => `This one shrugs off ${to}. Name another force.`;
+export const MOMENT_FIZZLE_HINT = "Nothing was cast, no HP changed. Write it again.";
