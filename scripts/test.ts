@@ -1,7 +1,7 @@
 // Pure game logic checks. Run: npm test
 import assert from "node:assert/strict";
 import { ENEMIES, FORBIDDEN_LABELS, WORDS } from "../src/content.ts";
-import { TUNING, applyCast, canCast, damageTaken, drawHand, isWon, newRun, nextEnemy, usedHandWords } from "../src/game.ts";
+import { TUNING, applyCast, canCast, damageTaken, drawHand, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, usedHandWords, type LogEntry } from "../src/game.ts";
 import { FORBIDDEN_OPTIONS } from "../src/judge.ts";
 
 const hand = ["river", "thorn", "flame", "ash", "whisper", "iron"];
@@ -67,5 +67,25 @@ assert.ok(WORDS.length >= 65 && WORDS.length <= 75);
 
 // Every forbidden category the judge can return has a player-facing label.
 assert.deepEqual(Object.keys(FORBIDDEN_OPTIONS).sort(), ["none", ...Object.keys(FORBIDDEN_LABELS)].sort());
+
+// Combat log: newest first; a Turn records effective scores and HP deltas, a Fizzle takes no turn number.
+{
+  const before = { enemy: 3, enemyHp: 12, playerHp: 20 };
+  const wraith = ENEMIES[3];
+  let log: LogEntry[] = [];
+  let verdict = { offence: 4, defence: 1, immune: false };
+  log = logTurn(log, "frost spell", "an attack", wraith, verdict, before, applyCast(before, wraith, verdict));
+  assert.deepEqual(log, [{ kind: "turn", turn: 1, spell: "frost spell", attack: "an attack", offence: 4, defence: 1, enemyHpLost: 4, playerHpLost: 4, immune: false, instantKill: false }]);
+  log = logFizzle(log, "rude spell", "swearing or slurs");
+  assert.deepEqual(log[0], { kind: "fizzle", spell: "rude spell", forbidden: "swearing or slurs" });
+  verdict = { offence: 5, defence: 5, immune: true };
+  log = logTurn(log, "fire spell", "an attack", wraith, verdict, before, applyCast(before, wraith, verdict));
+  assert.deepEqual(log[0], { kind: "turn", turn: 2, spell: "fire spell", attack: "an attack", offence: 0, defence: 5, enemyHpLost: 0, playerHpLost: 0, immune: true, instantKill: false }, "immune logs offence 0; the fizzle did not advance the turn number");
+  assert.equal(log.length, 3);
+  assert.deepEqual(logNextEnemy(log, before), [], "next Battle clears the log");
+  const kept = logNextEnemy(log, { enemy: ENEMIES.length - 2, enemyHp: 0, playerHp: 9 });
+  assert.deepEqual(kept, [{ kind: "phase" }, ...log], "the boss Phase change keeps the log under a divider");
+  assert.partialDeepStrictEqual(logTurn(kept, "s", "a", boss, verdict, before, before)[0], { turn: 3 }, "turn numbers continue across the Phase change");
+}
 
 console.log("ok");

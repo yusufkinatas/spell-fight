@@ -1,5 +1,5 @@
 import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, PREMISE_LINE, WIN_LINE } from "./content.ts";
-import { TUNING, applyCast, canCast, drawHand, isWon, newRun, nextEnemy, offenceOf, usedHandWords, wordCount } from "./game.ts";
+import { TUNING, applyCast, canCast, drawHand, isPhaseChange, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, offenceOf, usedHandWords, wordCount, type LogEntry } from "./game.ts";
 import { icon } from "./icons.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -9,6 +9,7 @@ let run = newRun();
 let turn = 0;
 let hand = drawHand();
 let result = "";
+let log: LogEntry[] = []; // the current Battle's Combat log
 
 // `el("p", "cls", ...children)`: strings become text nodes.
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", ...children: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -67,10 +68,31 @@ function renderTitle() {
   begin.focus();
 }
 
+const pips = (score: number) => "●".repeat(score) + "○".repeat(5 - score);
+
+function renderLog(): HTMLElement {
+  const entries = log.map((e) =>
+    e.kind === "phase"
+      ? el("li", "divider", "the barrier breaks")
+      : e.kind === "fizzle"
+        ? el("li", "fizzle", el("q", "", e.spell), el("small", "", `Fizzled: ${e.forbidden}`))
+        : el(
+            "li",
+            "",
+            el("b", "", `Turn ${e.turn}`),
+            el("q", "", e.spell),
+            el("small", "", e.attack),
+            el("div", "scores", el("span", "", `Offence ${pips(e.offence)}`), el("span", "", e.immune ? "immune" : e.instantKill ? "instant kill" : `−${e.enemyHpLost} enemy HP`)),
+            el("div", "scores", el("span", "", `Defence ${e.instantKill ? "—" : pips(e.defence)}`), el("span", "", `−${e.playerHpLost} HP`)),
+          ),
+  );
+  return el("aside", "log", el("h2", "", "Combat log"), entries.length ? el("ol", "", ...entries) : el("p", "", "No spells cast yet."));
+}
+
 function render() {
   if (!started) return renderTitle();
   const enemy = ENEMIES[run.enemy];
-  const phaseChange = ENEMIES[run.enemy + 1]?.name === enemy.name; // boss phase 1: the next entry is the same boss
+  const phaseChange = isPhaseChange(run);
   const stage = el(
     "div",
     "stage",
@@ -89,11 +111,12 @@ function render() {
     ),
   );
   const you = hpBar("Your HP", run.playerHp, TUNING.playerHp);
-  app.replaceChildren(el("div", "battle", stage));
+  app.replaceChildren(el("div", "battle", stage, renderLog()));
   if (run.enemyHp === 0 || run.playerHp === 0) {
     const ended = run.playerHp === 0 || isWon(run);
     const next = el("button", "", run.playerHp === 0 ? "Restart" : ended ? "Play again" : phaseChange ? "Fight on" : "Next enemy");
     next.onclick = () => {
+      log = ended ? [] : logNextEnemy(log, run);
       run = ended ? newRun() : nextEnemy(run);
       turn = 0;
       result = "";
@@ -137,11 +160,14 @@ function render() {
       const verdict: { forbidden: string; offence: number; defence: number; immune: boolean } = await res.json();
       if (verdict.forbidden !== "none") {
         // Free retry: no HP change, same hand, same attack. The scores are ignored.
-        result = `${FIZZLE_LINE} (${FORBIDDEN_LABELS[verdict.forbidden] ?? verdict.forbidden})`;
+        const label = FORBIDDEN_LABELS[verdict.forbidden] ?? verdict.forbidden;
+        result = `${FIZZLE_LINE} (${label})`;
+        log = logFizzle(log, input.value, label);
         return render();
       }
       const before = run;
       run = applyCast(run, enemy, verdict);
+      log = logTurn(log, input.value, attack, enemy, verdict, before, run);
       const offence = offenceOf(verdict);
       const instant = enemy.instantKill && offence === 5;
       // Only an instant kill stops the attack, so only then is there no defence line to show.

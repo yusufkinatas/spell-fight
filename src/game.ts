@@ -43,6 +43,9 @@ export const newRun = (): Run => ({ enemy: 0, enemyHp: ENEMIES[0].hp, playerHp: 
 
 export const nextEnemy = (run: Run): Run => ({ ...run, enemy: run.enemy + 1, enemyHp: ENEMIES[run.enemy + 1].hp });
 
+// Boss phase 1: the next entry is the same enemy, so the Battle continues.
+export const isPhaseChange = (run: Run) => ENEMIES[run.enemy + 1]?.name === ENEMIES[run.enemy].name;
+
 export const isWon = (run: Run) => run.enemyHp === 0 && run.enemy === ENEMIES.length - 1;
 
 // An immune enemy takes nothing from a spell that relies on its immunity, whatever the offence score was.
@@ -56,3 +59,21 @@ export function applyCast(run: Run, enemy: Pick<Enemy, "power" | "instantKill">,
   const playerHp = kill ? run.playerHp : Math.max(0, run.playerHp - damageTaken(enemy.power, verdict.defence));
   return { ...run, enemyHp, playerHp };
 }
+
+// Combat log of the current Battle, newest entry first. Flavour lines are not stored.
+export type LogEntry =
+  | { kind: "turn"; turn: number; spell: string; attack: string; offence: number; defence: number; enemyHpLost: number; playerHpLost: number; immune: boolean; instantKill: boolean }
+  | { kind: "fizzle"; spell: string; forbidden: string }
+  | { kind: "phase" };
+
+// `offence` is the effective one: 0 when the enemy was immune.
+export function logTurn(log: LogEntry[], spell: string, attack: string, enemy: Pick<Enemy, "instantKill">, verdict: { offence: number; defence: number; immune?: boolean }, before: Run, after: Run): LogEntry[] {
+  const offence = offenceOf(verdict);
+  const turn = log.filter((e) => e.kind === "turn").length + 1;
+  return [{ kind: "turn", turn, spell, attack, offence, defence: verdict.defence, enemyHpLost: before.enemyHp - after.enemyHp, playerHpLost: before.playerHp - after.playerHp, immune: !!verdict.immune, instantKill: enemy.instantKill && offence === 5 }, ...log];
+}
+
+export const logFizzle = (log: LogEntry[], spell: string, forbidden: string): LogEntry[] => [{ kind: "fizzle", spell, forbidden }, ...log];
+
+// Call with the run *before* nextEnemy: a new Battle clears the log, the boss's Phase change keeps it under a divider.
+export const logNextEnemy = (log: LogEntry[], run: Run): LogEntry[] => (isPhaseChange(run) ? [{ kind: "phase" }, ...log] : []);
