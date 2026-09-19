@@ -157,3 +157,11 @@ export const fizzleReasonShort = (label: string) => `Fizzled: ${label} — nothi
 export const INSTANT_KILL_LINE_SHORT = "Destroyed before it could strike.";
 export const BARRIER_BREAKS_LINE_SHORT = "The barrier shatters.";
 export const LOSE_LINE_SHORT = "You have fallen.";
+
+// Variant "moment": the outcome shows once, as a card, so its copy is short enough to take in at a glance.
+// The verdict in two or three words. Index = effective Offence 0..5.
+export const MOMENT_OFFENCE_TITLES = ["No harm", "A feeble strike", "A glancing hit", "A solid hit", "A heavy blow", "A devastating strike"];
+// The actionable half of the *_REASON lines; the long ones stay for the other variants.
+export const MOMENT_HOLLOW_HINT = "Say what does the harm, not just that it happens.";
+export const momentImmuneHint = (to: string) => `This one shrugs off ${to}. Name another force.`;
+export const MOMENT_FIZZLE_HINT = "Nothing was cast, no HP changed. Write it again.";
