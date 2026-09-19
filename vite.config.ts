@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
+import { ENEMIES } from "./src/content.ts";
 import { judge } from "./src/judge.ts";
 
 // The one tiny server route: holds the Jev key, forwards the judge call.
@@ -24,8 +25,10 @@ function judgeRoute(apiKey: string): Plugin {
           if (!texts.every((t) => typeof t === "string" && t.trim())) {
             return send(400, { error: "need enemy.name, enemy.description, attack, spell" });
           }
+          // The immunity goes into a question's instructions, so it comes from our own content, never from the request.
+          const immunity = ENEMIES.find((e) => e.name === enemy.name && e.description === enemy.description)?.immunity?.to;
           // Rebuild the object so nothing but these four strings reaches `state`.
-          send(200, await judge({ enemy: { name: enemy.name, description: enemy.description }, attack, spell }, apiKey));
+          send(200, await judge({ enemy: { name: enemy.name, description: enemy.description }, attack, spell, immunity }, apiKey));
         } catch (e) {
           console.error(e);
           send(500, { error: "judge failed" });

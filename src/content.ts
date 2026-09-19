@@ -2,7 +2,8 @@
 // DRAFT — edit freely. No logic lives here; the rules are in game.ts.
 
 // `instantKill`: offence 5 kills this enemy outright, before its attack lands. `emoji` is placeholder art, never judged.
-export type Enemy = { emoji: string; name: string; description: string; hp: number; power: number; instantKill: boolean; attacks: string[] };
+// `immunity`: shown on the enemy card as "Immune to <to>." A spell that mainly relies on <to> does 0 damage and shows `line`.
+export type Enemy = { emoji: string; name: string; description: string; hp: number; power: number; instantKill: boolean; attacks: string[]; immunity?: { to: string; line: string } };
 
 // `name` and `description` are shown to the player and sent to the judge unchanged.
 export const ENEMIES: Enemy[] = [
@@ -43,6 +44,20 @@ export const ENEMIES: Enemy[] = [
       "The witch breathes out a poison fog that fills the whole room.",
       "The witch whispers a curse and your own shadow rises to grip your throat.",
       "A swarm of biting marsh flies pours from the witch's sleeves and covers you.",
+    ],
+  },
+  {
+    emoji: "🔥",
+    name: "Fire Wraith",
+    description: "A ghost of living flame and smoke with no solid body, drifting above the ground.",
+    hp: 12,
+    power: 5,
+    instantKill: true,
+    immunity: { to: "fire and heat", line: "The flames pass through it harmlessly." },
+    attacks: [
+      "The wraith breathes a roaring jet of flame straight at you.",
+      "The wraith sinks into the floor and the stones under your feet glow red hot.",
+      "The wraith wraps itself around you as a whirlwind of choking smoke and embers.",
     ],
   },
 ];

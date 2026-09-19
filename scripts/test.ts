@@ -33,6 +33,10 @@ assert.deepEqual(applyCast({ enemy: 0, enemyHp: 3, playerHp: 1 }, golem, { offen
 assert.deepEqual(applyCast({ enemy: 0, enemyHp: 99, playerHp: 1 }, golem, { offence: 5, defence: 0 }), { enemy: 0, enemyHp: 0, playerHp: 1 });
 assert.deepEqual(applyCast({ enemy: 0, enemyHp: 14, playerHp: 20 }, { power: 5, instantKill: false }, { offence: 5, defence: 0 }), { enemy: 0, enemyHp: 8, playerHp: 15 });
 
+// Immunity: a spell relying on it does 0 damage (no instant kill either), and the enemy still attacks.
+assert.deepEqual(applyCast({ enemy: 3, enemyHp: 12, playerHp: 20 }, golem, { offence: 5, defence: 0, immune: true }), { enemy: 3, enemyHp: 12, playerHp: 17 });
+assert.deepEqual(applyCast({ enemy: 3, enemyHp: 12, playerHp: 20 }, golem, { offence: 4, defence: 5, immune: false }), { enemy: 3, enemyHp: 8, playerHp: 20 });
+
 // The run: 20 HP at enemy 1, player HP carries over with no healing, the win is the last enemy's death.
 assert.deepEqual(newRun(), { enemy: 0, enemyHp: ENEMIES[0].hp, playerHp: 20 });
 let run = applyCast(newRun(), ENEMIES[0], { offence: 0, defence: 0 });

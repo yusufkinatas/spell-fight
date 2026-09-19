@@ -45,10 +45,14 @@ export const nextEnemy = (run: Run): Run => ({ ...run, enemy: run.enemy + 1, ene
 
 export const isWon = (run: Run) => run.enemyHp === 0 && run.enemy === ENEMIES.length - 1;
 
+// An immune enemy takes nothing from a spell that relies on its immunity, whatever the offence score was.
+export const offenceOf = (verdict: { offence: number; immune?: boolean }) => (verdict.immune ? 0 : verdict.offence);
+
 // Offence lands first: an enemy killed this turn does not get its attack in.
-export function applyCast(run: Run, enemy: Pick<Enemy, "power" | "instantKill">, verdict: { offence: number; defence: number }): Run {
-  const kill = enemy.instantKill && verdict.offence === 5;
-  const enemyHp = kill ? 0 : Math.max(0, run.enemyHp - damageDealt(verdict.offence));
+export function applyCast(run: Run, enemy: Pick<Enemy, "power" | "instantKill">, verdict: { offence: number; defence: number; immune?: boolean }): Run {
+  const offence = offenceOf(verdict);
+  const kill = enemy.instantKill && offence === 5;
+  const enemyHp = kill ? 0 : Math.max(0, run.enemyHp - damageDealt(offence));
   const playerHp = enemyHp === 0 ? run.playerHp : Math.max(0, run.playerHp - damageTaken(enemy.power, verdict.defence));
   return { ...run, enemyHp, playerHp };
 }

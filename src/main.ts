@@ -1,5 +1,5 @@
 import { DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, WIN_LINE } from "./content.ts";
-import { TUNING, applyCast, canCast, drawHand, isWon, newRun, nextEnemy, usedHandWords } from "./game.ts";
+import { TUNING, applyCast, canCast, drawHand, isWon, newRun, nextEnemy, offenceOf, usedHandWords } from "./game.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
@@ -28,6 +28,7 @@ function render() {
   app.replaceChildren(
     el("h1", `${enemy.emoji} ${enemy.name}`),
     el("p", enemy.description),
+    ...(enemy.immunity ? [el("p", `🛡️ Immune to ${enemy.immunity.to}.`)] : []),
     bar("Enemy", run.enemyHp, enemy.hp),
     bar("You", run.playerHp, TUNING.playerHp),
     el("pre", result),
@@ -70,7 +71,7 @@ function render() {
         body: JSON.stringify({ enemy: { name: enemy.name, description: enemy.description }, attack, spell: input.value }),
       });
       if (!res.ok) throw new Error(`judge ${res.status}`);
-      const verdict: { forbidden: string; offence: number; defence: number } = await res.json();
+      const verdict: { forbidden: string; offence: number; defence: number; immune: boolean } = await res.json();
       if (verdict.forbidden !== "none") {
         // Free retry: no HP change, same hand, same attack. The scores are ignored.
         result = `${FIZZLE_LINE} (${FORBIDDEN_LABELS[verdict.forbidden] ?? verdict.forbidden})`;
@@ -78,13 +79,14 @@ function render() {
       }
       const before = run;
       run = applyCast(run, enemy, verdict);
-      const instant = enemy.instantKill && verdict.offence === 5;
+      const offence = offenceOf(verdict);
+      const instant = enemy.instantKill && offence === 5;
       // An enemy killed by the spell never lands its attack, so there is no defence line to show.
       const defenceLine = run.enemyHp === 0 ? KILL_LINE : DEFENCE_LINES[verdict.defence];
       result =
-        `${instant ? INSTANT_KILL_LINE : OFFENCE_LINES[verdict.offence]} (−${before.enemyHp - run.enemyHp} enemy HP)\n` +
+        `${(verdict.immune && enemy.immunity?.line) || (instant ? INSTANT_KILL_LINE : OFFENCE_LINES[offence])} (−${before.enemyHp - run.enemyHp} enemy HP)\n` +
         `${defenceLine} (−${before.playerHp - run.playerHp} HP)\n` +
-        `Offence ${verdict.offence}/5 · Defence ${verdict.defence}/5`;
+        `Offence ${offence}/5 · Defence ${verdict.defence}/5`;
       turn++;
       hand = drawHand();
       render();

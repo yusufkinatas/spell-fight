@@ -4,10 +4,12 @@ export type Cast = {
   enemy: { name: string; description: string };
   attack: string;
   spell: string;
+  immunity?: string; // what the enemy is immune to, e.g. "fire and heat". Not part of `state`: it only adds the immunity question.
 };
 
 // `forbidden` is "none" or a key of FORBIDDEN_LABELS in content.ts; when it is not "none" the scores are ignored.
-export type Verdict = { forbidden: string; defence: number; offence: number };
+// `immune`: the spell mainly relies on the enemy's immunity, so code forces offence to 0. Always false for enemies without one.
+export type Verdict = { forbidden: string; defence: number; offence: number; immune: boolean };
 
 // Jev judges every level on its own, without seeing its number or its
 // neighbours, so each level describes a concrete situation, not a degree.
@@ -76,17 +78,29 @@ const QUESTIONS = {
   },
 };
 
+// Only asked for enemies with an immunity, in the same request as the other questions.
+const immunityQuestion = (to: string) => ({
+  type: "noul",
+  instructions: `\`spell\` is a magic spell cast by a player at the creature in \`enemy\`. Does the spell in \`spell\` mainly rely on ${to} to hurt the creature?`,
+  criteria: {
+    true: `The main way the spell tries to hurt the creature is ${to}, in any form.`,
+    false: `The spell hurts the creature mainly by something other than ${to}, or it does not try to hurt the creature at all. Using ${to} only to protect the caster also counts as no.`,
+  },
+});
+
 // Deterministic: the single most likely level, not the probability-weighted score.
 function mostLikely(probabilities: Record<string, number>): number {
   return Number(Object.entries(probabilities).sort((a, b) => b[1] - a[1])[0][0]);
 }
 
 export async function judge(cast: Cast, apiKey: string): Promise<Verdict> {
+  const { immunity, ...state } = cast;
+  const questions = immunity ? { ...QUESTIONS, immune: immunityQuestion(immunity) } : QUESTIONS;
   const res = await fetch("https://api.typesafe.ai/v1/systemone", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     // ponytail: no retry on 429/529, add backoff (or the SDK) if rate limits bite
-    body: JSON.stringify({ model: "jev-latest", state: cast, questions: QUESTIONS }),
+    body: JSON.stringify({ model: "jev-latest", state, questions }),
   });
   if (!res.ok) throw new Error(`Jev ${res.status}: ${await res.text()}`);
   const { answers } = await res.json();
@@ -94,5 +108,6 @@ export async function judge(cast: Cast, apiKey: string): Promise<Verdict> {
     forbidden: answers.forbidden.choice,
     defence: mostLikely(answers.defence.probabilities),
     offence: mostLikely(answers.offence.probabilities),
+    immune: (answers.immune?.noul ?? 0) >= 0.5,
   };
 }
