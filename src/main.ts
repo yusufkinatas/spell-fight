@@ -1,4 +1,4 @@
-import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, HOLLOW_LINE, HOLLOW_REASON, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, PREMISE_LINE, WIN_LINE, immuneReason } from "./content.ts";
+import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, HOLLOW_HINT, HOLLOW_LINE, HOLLOW_REASON, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, PREMISE_LINE, WIN_LINE, immuneHint, immuneReason, type Enemy } from "./content.ts";
 import { TUNING, applyCast, canCast, drawHand, isPhaseChange, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, offenceOf, revealCues, usedHandWords, wordCount, type Cue, type LogEntry, type Run } from "./game.ts";
 import { effect, music, playCue, setSetting, settings, shimmer, unlockAudio } from "./audio.ts";
 import { icon } from "./icons.ts";
@@ -33,12 +33,13 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", ...ch
 }
 
 function setHp(row: HTMLElement, hp: number, max: number) {
-  row.querySelector<HTMLElement>(".hp-fill")!.style.width = `${(100 * hp) / max}%`;
+  // The ghost chunk ("show" only) gets the same width and lags behind on a CSS delay.
+  for (const bar of row.querySelectorAll<HTMLElement>(".hp-fill, .hp-ghost")) bar.style.width = `${(100 * hp) / max}%`;
   row.querySelector("span")!.textContent = `${hp}/${max}`;
 }
 
 function hpBar(label: string, hp: number, max: number): HTMLElement {
-  const row = el("div", "hp", icon("glass-heart"), el("div", "hp-track", el("div", "hp-fill")), el("span"));
+  const row = el("div", "hp", icon("glass-heart"), el("div", "hp-track", ...(variant === "show" ? [el("div", "hp-ghost")] : []), el("div", "hp-fill")), el("span"));
   row.title = label;
   setHp(row, hp, max);
   return row;
@@ -63,8 +64,15 @@ async function playReveal(cues: Cue[], ui: RevealUi, lines: string[], after: Run
     target.classList.add(name);
   };
   const float = (target: HTMLElement, text: string) => target.append(el("b", "float", text));
-  ui.resultBox.textContent = "";
-  const say = (line: string) => ui.resultBox.append(line + "\n");
+  // "show" already has its verdict strip in the box: a beat reveals the next row instead of printing a line.
+  const staged = variant === "show";
+  let beat = 0;
+  if (staged) ui.resultBox.classList.add("staged");
+  else ui.resultBox.textContent = "";
+  const say = (line: string) => {
+    if (staged) ui.resultBox.querySelectorAll(".vrow")[beat++]?.classList.add("in");
+    else ui.resultBox.append(line + "\n");
+  };
   for (const cue of cues) {
     if (skipped) break;
     playCue(cue);
@@ -190,6 +198,8 @@ function renderLog(): HTMLElement {
       ? el("li", "divider", "the barrier breaks")
       : e.kind === "fizzle"
         ? el("li", "fizzle", el("q", "", e.spell), el("small", "", `Fizzled: ${e.forbidden}`))
+        : variant === "show"
+        ? verdictLogRow(e)
         : el(
             "li",
             "",
@@ -203,6 +213,54 @@ function renderLog(): HTMLElement {
   );
   return el("aside", "log", el("h2", "", "Combat log"), entries.length ? el("ol", "", ...entries) : el("p", "", "No spells cast yet."));
 }
+
+// --- variant: show ---
+// One Cast makes two facts — what your Spell did, what the Attack did — so it renders as two rows of five pips.
+// Everything is read off the newest Combat log entry, so the stage and the log can never disagree and a variant
+// switch or an end screen rebuilds the same view from module state.
+
+type VerdictTurn = Extract<LogEntry, { kind: "turn" }>;
+
+const verdictChip = (cls: string, text: string) => el("span", `chip ${cls}`, text);
+
+// Icon, five pips, optional chip; a hint wraps under the pips. A negated Offence is struck through the pips the Judge did award.
+function verdictRow(glyph: string, score: number, label: string, struck = false, tail?: HTMLElement, hint = "") {
+  const shown = el("span", "pips", el("i", "on", "●".repeat(score)), el("i", "off", "○".repeat(5 - score)));
+  shown.setAttribute("role", "img"); // otherwise a screen reader spells out five circles
+  shown.setAttribute("aria-label", label);
+  return el("div", struck ? "vrow struck" : "vrow", icon(glyph), shown, ...(tail ? [tail] : []), ...(hint ? [el("p", "hint", hint)] : []));
+}
+
+// The Offence chip and whether the row is struck: the same for the stage and the Combat log.
+const negatedIn = (e: VerdictTurn) => e.immune || e.hollow;
+const verdictOffence = (e: VerdictTurn) =>
+  e.immune ? verdictChip("tag", "Immune") : e.hollow ? verdictChip("tag", "Hollow") : e.instantKill ? verdictChip("good", "Kill") : e.enemyHpLost ? verdictChip("hit", `−${e.enemyHpLost}`) : undefined;
+const verdictDefence = (e: VerdictTurn, label: string) =>
+  verdictRow("checked-shield", e.defence, label, false, e.playerHpLost ? verdictChip("hurt", `−${e.playerHpLost}`) : verdictChip("good", "Blocked"));
+
+function verdictStrip(e: LogEntry | undefined, enemy: Enemy): HTMLElement {
+  // Turn 0, a new Battle and the Phase divider all teach the mapping with two empty, labelled rows.
+  if (!e || e.kind === "phase")
+    return el("div", "strip legend", verdictRow("crossed-swords", 0, "Offence", false, el("small", "", "Offence")), verdictRow("checked-shield", 0, "Defence", false, el("small", "", "Defence")));
+  if (e.kind === "fizzle") return el("div", "strip", el("div", "vrow flat", verdictChip("tag", "Fizzle"), el("small", "", e.forbidden)));
+  const negated = negatedIn(e);
+  const hint = e.hollow ? HOLLOW_HINT : e.immune && enemy.immunity ? immuneHint(enemy.immunity.to) : "";
+  const sword = verdictRow("crossed-swords", negated ? e.judged : e.offence, `Offence ${e.offence} of 5`, negated, verdictOffence(e), hint);
+  // An instant kill stops the Attack, so there is no Defence row to show.
+  return el("div", e.instantKill ? "strip kill" : "strip", sword, ...(e.instantKill ? [] : [verdictDefence(e, `Defence ${e.defence} of 5`)]));
+}
+
+// The log becomes a history of strips: the Attack (a duplicate of the banner) and the reason (now on stage) drop out.
+const verdictLogRow = (e: VerdictTurn) =>
+  el(
+    "li",
+    "verdict",
+    el("b", "", String(e.turn)),
+    el("q", "", e.spell),
+    el("div", "scores mini", verdictRow("crossed-swords", negatedIn(e) ? e.judged : e.offence, `Offence ${e.offence} of 5`, negatedIn(e), verdictOffence(e)), ...(e.instantKill ? [] : [verdictDefence(e, `Defence ${e.defence} of 5`)])),
+  );
+
+const verdictPanel = () => (variant === "show" ? el("div", "result", verdictStrip(log[0], ENEMIES[run.enemy])) : el("div", "result", result));
 
 function render() {
   if (!started) return renderTitle();
@@ -246,7 +304,7 @@ function render() {
       hand = drawHand();
       render();
     };
-    stage.append(el("div", "result", result), el("div", "end", el("h2", "", run.playerHp === 0 ? LOSE_LINE : ended ? WIN_LINE : phaseChange ? BARRIER_BREAKS_LINE : `The ${enemy.name} falls.`), next), you);
+    stage.append(verdictPanel(), el("div", "end", el("h2", "", run.playerHp === 0 ? LOSE_LINE : ended ? WIN_LINE : phaseChange ? BARRIER_BREAKS_LINE : `The ${enemy.name} falls.`), next), you);
     next.focus();
     return;
   }
@@ -327,14 +385,17 @@ function render() {
     track("cast", { enemy: enemy.name, enemy_index: before.enemy, turn: castTurn, attack, hand: castHand, spell: input.value, ...verdict, enemy_hp_before: before.enemyHp, enemy_hp_after: run.enemyHp, player_hp_before: before.playerHp, player_hp_after: run.playerHp });
     if (run.playerHp === 0 || isWon(run)) track("run_ended", { outcome: run.playerHp === 0 ? "lost" : "won", enemy: enemy.name, enemy_index: run.enemy, player_hp: run.playerHp });
     result = lines.join("\n");
+    // "show" builds the strip before the Reveal so each row can land on its own beat.
+    if (variant === "show") resultBox.replaceChildren(verdictStrip(log[0], enemy));
     await playReveal(revealCues(verdict, enemy, before, run), { stage, portrait, enemyBar, you, resultBox, banner }, lines, run, enemy.hp);
     busy = false;
     render(); // the end state, whether the Reveal played out or was skipped
     if (run.playerHp === 0) effect("lose");
     else if (isWon(run)) effect("win");
   };
-  const banner = el("div", "attack", icon("crossed-swords"), el("div", "", el("small", "", "Incoming"), attack));
-  const resultBox = el("div", "result", result);
+  // "show" gives the enemy its own Portrait glyph here, so the crossed swords mean only "your Offence".
+  const banner = el("div", "attack", icon(variant === "show" ? enemy.portrait : "crossed-swords"), el("div", "", el("small", "", "Incoming"), attack));
+  const resultBox = verdictPanel();
   stage.append(
     banner,
     resultBox,

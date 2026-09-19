@@ -148,3 +148,7 @@ export const FORBIDDEN_LABELS: Record<string, string> = {
   religious: "religious claim or insult",
   judge: "addressing the judge",
 };
+
+// variant "show": the whole lesson in one line under the struck pips; the chip beside them already says HOLLOW or IMMUNE.
+export const HOLLOW_HINT = "Name the force that does the harm.";
+export const immuneHint = (to: string) => `Your spell relied on ${to}.`;
