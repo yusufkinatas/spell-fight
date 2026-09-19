@@ -165,3 +165,7 @@ export const MOMENT_OFFENCE_TITLES = ["No harm", "A feeble strike", "A glancing 
 export const MOMENT_HOLLOW_HINT = "Say what does the harm, not just that it happens.";
 export const momentImmuneHint = (to: string) => `This one shrugs off ${to}. Name another force.`;
 export const MOMENT_FIZZLE_HINT = "Nothing was cast, no HP changed. Write it again.";
+
+// variant disclose: the primer in the verdict strip before the first Cast of a Run, and the Fizzle's reassurance.
+export const DISCLOSE_FIRST_HINT = "Answer the Attack, and name the force that does the harm.";
+export const DISCLOSE_FIZZLE_AGAIN = "Cast again — nothing was lost.";

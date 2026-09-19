@@ -1,4 +1,4 @@
-import { BARRIER_BREAKS_LINE, BARRIER_BREAKS_LINE_SHORT, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, HOLLOW_LINE, HOLLOW_REASON, HOLLOW_REASON_SHORT, INSTANT_KILL_LINE, INSTANT_KILL_LINE_SHORT, KILL_LINE, LOSE_LINE, LOSE_LINE_SHORT, MOMENT_FIZZLE_HINT, MOMENT_HOLLOW_HINT, MOMENT_OFFENCE_TITLES, OFFENCE_LINES, PREMISE_LINE, WIN_LINE, fizzleReasonShort, immuneReason, immuneReasonShort, momentImmuneHint } from "./content.ts";
+import { BARRIER_BREAKS_LINE, BARRIER_BREAKS_LINE_SHORT, DEFENCE_LINES, DISCLOSE_FIRST_HINT, DISCLOSE_FIZZLE_AGAIN, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, HOLLOW_LINE, HOLLOW_REASON, HOLLOW_REASON_SHORT, INSTANT_KILL_LINE, INSTANT_KILL_LINE_SHORT, KILL_LINE, LOSE_LINE, LOSE_LINE_SHORT, MOMENT_FIZZLE_HINT, MOMENT_HOLLOW_HINT, MOMENT_OFFENCE_TITLES, OFFENCE_LINES, PREMISE_LINE, WIN_LINE, fizzleReasonShort, immuneReason, immuneReasonShort, momentImmuneHint, type Enemy } from "./content.ts";
 import { TUNING, applyCast, canCast, drawHand, isPhaseChange, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, offenceOf, revealCues, usedHandWords, wordCount, type Cue, type LogEntry, type Run } from "./game.ts";
 import { effect, music, playCue, setSetting, settings, shimmer, unlockAudio } from "./audio.ts";
 import { icon } from "./icons.ts";
@@ -65,7 +65,7 @@ async function playReveal(cues: Cue[], ui: RevealUi, lines: string[], after: Run
   const float = (target: HTMLElement, text: string) => target.append(el("b", "float", text));
   ui.resultBox.textContent = "";
   // subtract: the slot holds the Turn row instead, and the Reveal already shows what these lines would say.
-  const say = (line: string) => { if (variant !== "subtract") ui.resultBox.append(line + "\n"); };
+  const say = (line: string) => { if (variant !== "subtract") ui.resultBox.append(variant === "disclose" ? el("span", "said", line) : line + "\n"); };
   for (const cue of cues) {
     if (skipped) break;
     playCue(cue);
@@ -187,6 +187,7 @@ const pips = (score: number) => "●".repeat(score) + "○".repeat(5 - score);
 
 function renderLog(): HTMLElement {
   if (variant === "subtract") return el("aside", "log", el("h2", "", "Combat log"), el("ol", "", ...olderEntries().map(turnRow)));
+  if (variant === "disclose") return discloseLog();
   const entries = isMoment() ? log.map(momentRow) : log.map((e) =>
     e.kind === "phase"
       ? el("li", "divider", "the barrier breaks")
@@ -339,6 +340,79 @@ const subEndLine = () => {
   if (last?.kind === "turn" && last.instantKill) return INSTANT_KILL_LINE_SHORT;
   return `The ${ENEMIES[run.enemy].name} falls.`;
 };
+// --- variant: disclose ---
+type DiscloseTurn = Extract<LogEntry, { kind: "turn" }>;
+
+// The two values the verdict strip and the log rows both show: what the Spell did, what the Attack cost.
+const discloseValues = (e: DiscloseTurn): [string, string] => [
+  e.instantKill ? "destroyed" : e.immune ? "immune" : e.hollow ? "hollow" : e.enemyHpLost ? `−${e.enemyHpLost} enemy HP` : "no damage",
+  e.instantKill ? "no attack" : e.playerHpLost ? `−${e.playerHpLost} HP` : "blocked",
+];
+
+// What the Reveal says beat by beat: the same values the strip settles on, or the Fizzle's one line.
+const discloseSaid = (e: LogEntry): string[] => (e.kind === "turn" ? discloseValues(e) : e.kind === "fizzle" ? [`${FIZZLE_LINE} (${e.forbidden}) ${DISCLOSE_FIZZLE_AGAIN}`] : []);
+
+// One line of verdict, above the banner so the past reads above the future. The prose and the lesson are one tap away.
+function discloseStrip(entry: LogEntry | undefined, enemy: Enemy, firstCast: boolean): HTMLElement {
+  const box = el("div", "verdict");
+  box.setAttribute("aria-live", "polite"); // the Reveal fills this same box, so its beats are announced
+  if (entry?.kind !== "turn") {
+    if (entry?.kind === "fizzle") box.append(el("span", "said", discloseSaid(entry)[0]));
+    else if (firstCast) box.append(el("span", "hint", DISCLOSE_FIRST_HINT));
+    else box.classList.add("blank"); // turn 0 of a later Battle: nothing to report, no gap
+    return box;
+  }
+  const [hit, cost] = discloseValues(entry);
+  box.append(
+    el("span", "half off", el("i", "lbl", "Offence"), el("i", "pips", pips(entry.offence)), el("b", entry.immune || entry.hollow ? "tag" : "", hit)),
+    el("span", "half def", el("i", "lbl", "Defence"), el("i", "pips", entry.instantKill ? "—" : pips(entry.defence)), el("b", entry.playerHpLost ? "cost" : "", cost)),
+  );
+  const more = el("details", "");
+  // The lesson pushes itself the first time this kind of negation happens in the Battle; after that it is one tap away.
+  // Matching on `reason` counts only negated Turns of the same kind, and ignores Fizzles and the Phase divider.
+  more.open = !!entry.reason && log.filter((e) => e.kind === "turn" && e.reason === entry.reason).length === 1;
+  more.append(
+    el("summary", entry.reason ? "why" : "", entry.reason ? "Why?" : "Detail"),
+    el("p", "", (entry.immune && enemy.immunity?.line) || (entry.hollow && HOLLOW_LINE) || (entry.instantKill ? INSTANT_KILL_LINE : OFFENCE_LINES[entry.offence])),
+    el("p", "", entry.instantKill ? KILL_LINE : DEFENCE_LINES[entry.defence]),
+    ...(entry.reason ? [el("p", "lesson", entry.reason)] : []),
+  );
+  box.append(more);
+  return box;
+}
+
+// One line per Turn: its outcome is readable closed, the spell, the Attack, the pips and the lesson open on demand.
+function discloseLogRow(e: DiscloseTurn): HTMLElement {
+  const row = el("details", "");
+  const [hit, cost] = discloseValues(e);
+  row.append(
+    el("summary", "", el("b", "", `Turn ${e.turn}`), el("q", "", e.spell), el("span", "tag", icon("crossed-swords"), hit)),
+    el("small", "", e.attack),
+    el("div", "scores", el("span", "", `Offence ${pips(e.offence)}`), el("span", "", `Defence ${e.instantKill ? "—" : pips(e.defence)} · ${cost}`)),
+    ...(e.reason ? [el("small", "lesson", e.reason)] : []),
+  );
+  return row;
+}
+
+function discloseLog(): HTMLElement {
+  const rows = log.map((e) => (e.kind === "phase" ? el("li", "divider", "the barrier breaks") : e.kind === "fizzle" ? el("li", "fizzle", el("q", "", e.spell), el("span", "tag", "fizzled")) : el("li", "", discloseLogRow(e))));
+  const turns = log.filter((e) => e.kind === "turn").length;
+  const box = el("details", "log");
+  box.open = matchMedia("(min-width: 900px)").matches; // the wide layout has a column to spare; on a phone the log is never the next action
+  box.append(
+    el("summary", "", el("h2", "", "Combat log"), el("span", "count", turns ? `${turns} turn${turns === 1 ? "" : "s"}` : "")),
+    rows.length ? el("ol", "", ...rows) : el("p", "", "No spells cast yet."),
+  );
+  return box;
+}
+
+// A mouse click on a summary takes focus off the Spell; hand it straight back so the caret never leaves it. Keyboard
+// activation (detail 0) keeps its place in the tab order, and on touch refocusing would pop the keyboard over the
+// detail just opened.
+addEventListener("click", (e) => {
+  if (variant !== "disclose" || e.detail === 0 || !matchMedia("(pointer: fine)").matches) return;
+  if ((e.target as Element).closest?.("summary")) app.querySelector("textarea")?.focus();
+});
 
 function render() {
   dropMoment?.(); // this render replaces the DOM the open card's listeners were closing over
@@ -390,7 +464,7 @@ function render() {
       // The end card is the same card, made modal: the outcome and what it ended, with only its button as the way out.
       stage.append(you);
       openMoment(moment, stage, el("h3", "end-line", endLine), next);
-    } else stage.append(variant === "subtract" ? turnSlot() : el("div", "result", result), el("div", "end", el("h2", "", endLine), next), you);
+    } else stage.append(variant === "subtract" ? turnSlot() : variant === "disclose" ? discloseStrip(log[0], enemy, false) : el("div", "result", result), el("div", "end", el("h2", "", endLine), next), you);
     next.focus();
     return;
   }
@@ -472,7 +546,7 @@ function render() {
     track("cast", { enemy: enemy.name, enemy_index: before.enemy, turn: castTurn, attack, hand: castHand, spell: input.value, ...verdict, enemy_hp_before: before.enemyHp, enemy_hp_after: run.enemyHp, player_hp_before: before.playerHp, player_hp_after: run.playerHp });
     if (run.playerHp === 0 || isWon(run)) track("run_ended", { outcome: run.playerHp === 0 ? "lost" : "won", enemy: enemy.name, enemy_index: run.enemy, player_hp: run.playerHp });
     result = lines.join("\n");
-    await playReveal(revealCues(verdict, enemy, before, run), { stage, portrait, enemyBar, you, resultBox, banner }, lines, run, enemy.hp);
+    await playReveal(revealCues(verdict, enemy, before, run), { stage, portrait, enemyBar, you, resultBox, banner }, variant === "disclose" ? discloseSaid(log[0]) : lines, run, enemy.hp);
     busy = false;
     render(); // the end state, whether the Reveal played out or was skipped
     if (run.playerHp === 0) effect("lose");
@@ -481,10 +555,10 @@ function render() {
   const banner = el("div", "attack", icon("crossed-swords"), el("div", "", el("small", "", isMoment() ? `Incoming · Turn ${turn + 1}` : "Incoming"), attack));
   // In "moment" the result box is left out of the stage: playReveal still writes to it, so only its animations,
   // floats, shake and HP tweens land, and the prose goes nowhere.
-  const resultBox = variant === "subtract" ? turnSlot() : el("div", "result", result);
+  const resultBox = variant === "subtract" ? turnSlot() : variant === "disclose" ? discloseStrip(log[0], enemy, turn === 0 && run.enemy === 0) : el("div", "result", result);
   stage.append(
-    // subtract: the Turn just played sits above the Incoming banner, past above future
-    ...(variant === "subtract" ? [resultBox, banner] : isMoment() ? [banner] : [banner, resultBox]),
+    // subtract and disclose put the Turn just played (the past) above the Incoming banner (the future)
+    ...(variant === "subtract" || variant === "disclose" ? [resultBox, banner] : isMoment() ? [banner] : [banner, resultBox]),
     el("div", "hand", ...tiles),
     el("div", "casting", el("div", "scroll", input, el("div", "limits", usedCount, total)), el("div", "cast-row", you, cast)),
   );
