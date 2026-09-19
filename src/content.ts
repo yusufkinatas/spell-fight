@@ -148,3 +148,7 @@ export const FORBIDDEN_LABELS: Record<string, string> = {
   religious: "religious claim or insult",
   judge: "addressing the judge",
 };
+
+// variant disclose: the primer in the verdict strip before the first Cast of a Run, and the Fizzle's reassurance.
+export const DISCLOSE_FIRST_HINT = "Answer the Attack, and name the force that does the harm.";
+export const DISCLOSE_FIZZLE_AGAIN = "Cast again — nothing was lost.";
