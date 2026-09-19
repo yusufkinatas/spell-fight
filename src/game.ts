@@ -56,6 +56,15 @@ export const DEFENCE_LINES = [
   "The attack is stopped completely.",
 ];
 
+export const FIZZLE_LINE = "The spell fizzles.";
+// Keys match the judge's forbidden options (src/judge.ts); the test checks they stay in sync.
+export const FORBIDDEN_LABELS: Record<string, string> = {
+  swearing: "swearing or slurs",
+  sexual: "sexual content",
+  religious: "religious claim or insult",
+  judge: "addressing the judge",
+};
+
 // ponytail: crude stem (drop a final "e" so flame matches flaming); "ash" also matches "ashamed". Real stemmer if players notice.
 const stem = (word: string) => (word.length > 3 ? word.replace(/e$/, "") : word);
 

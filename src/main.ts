@@ -1,4 +1,4 @@
-import { DEFENCE_LINES, ENEMIES, OFFENCE_LINES, TUNING, applyCast, canCast, drawHand, usedHandWords } from "./game.ts";
+import { DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, OFFENCE_LINES, TUNING, applyCast, canCast, drawHand, usedHandWords } from "./game.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const enemy = ENEMIES[0];
@@ -62,7 +62,12 @@ function render() {
         body: JSON.stringify({ enemy: { name: enemy.name, description: enemy.description }, attack, spell: input.value }),
       });
       if (!res.ok) throw new Error(`judge ${res.status}`);
-      const verdict: { offence: number; defence: number } = await res.json();
+      const verdict: { forbidden: string; offence: number; defence: number } = await res.json();
+      if (verdict.forbidden !== "none") {
+        // Free retry: no HP change, same hand, same attack. The scores are ignored.
+        result = `${FIZZLE_LINE} (${FORBIDDEN_LABELS[verdict.forbidden] ?? verdict.forbidden})`;
+        return render();
+      }
       const before = fight;
       fight = applyCast(fight, enemy.power, verdict);
       // An enemy killed by the spell never lands its attack, so there is no defence line to show.

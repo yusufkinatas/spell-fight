@@ -1,6 +1,7 @@
 // Pure game logic checks. Run: npm test
 import assert from "node:assert/strict";
-import { TUNING, WORDS, applyCast, canCast, damageTaken, drawHand, usedHandWords } from "../src/game.ts";
+import { FORBIDDEN_LABELS, TUNING, WORDS, applyCast, canCast, damageTaken, drawHand, usedHandWords } from "../src/game.ts";
+import { FORBIDDEN_OPTIONS } from "../src/judge.ts";
 
 const hand = ["river", "thorn", "flame", "ash", "whisper", "iron"];
 
@@ -25,5 +26,8 @@ assert.deepEqual([0, 1, 2, 3, 4, 5].map((d) => damageTaken(3, d)), [3, 2, 2, 1, 
 assert.deepEqual(applyCast({ enemyHp: 8, playerHp: 20 }, 3, { offence: 4, defence: 1 }), { enemyHp: 4, playerHp: 18 });
 assert.deepEqual(applyCast({ enemyHp: 8, playerHp: 2 }, 3, { offence: 0, defence: 0 }), { enemyHp: 8, playerHp: 0 }, "HP floors at 0");
 assert.deepEqual(applyCast({ enemyHp: 3, playerHp: 1 }, 3, { offence: 3, defence: 0 }), { enemyHp: 0, playerHp: 1 }, "offence first: a dead enemy does not attack");
+
+// Every forbidden category the judge can return has a player-facing label.
+assert.deepEqual(Object.keys(FORBIDDEN_OPTIONS).sort(), ["none", ...Object.keys(FORBIDDEN_LABELS)].sort());
 
 console.log("ok");
