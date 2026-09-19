@@ -176,3 +176,9 @@ button:not(:disabled):active { background: var(--purple); }
 .stage.falling { animation: falling 0.7s ease-in forwards; }
 @keyframes falling { to { filter: grayscale(1) brightness(0.55); } }
 .stage.fallen .enemy, .stage.fallen .result { filter: grayscale(1) brightness(0.55); }
+
+/* Audio toggles, top right */
+.toggles { position: fixed; top: 0.5rem; right: 0.5rem; z-index: 4; display: flex; gap: 0.4rem; }
+.toggles button { position: relative; width: 48px; padding: 0; font-size: 1.3rem; background: #1f1a29cc; }
+.toggles .off { color: var(--dim); border-color: var(--line); }
+.toggles .off::after { content: ""; position: absolute; inset: 50% 18%; height: 2px; background: currentColor; transform: rotate(-45deg); }

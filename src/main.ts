@@ -1,5 +1,6 @@
 import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, PREMISE_LINE, WIN_LINE } from "./content.ts";
 import { TUNING, applyCast, canCast, drawHand, isPhaseChange, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, offenceOf, revealCues, usedHandWords, wordCount, type Cue, type LogEntry, type Run } from "./game.ts";
+import { effect, playCue, setSetting, settings, shimmer, unlockAudio } from "./audio.ts";
 import { icon } from "./icons.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -54,6 +55,7 @@ async function playReveal(cues: Cue[], ui: RevealUi, lines: string[], after: Run
   const say = (line: string) => ui.resultBox.append(line + "\n");
   for (const cue of cues) {
     if (skipped) break;
+    playCue(cue);
     switch (cue.kind) {
       case "cast": {
         // The Spell flies from the scroll up to the Portrait.
@@ -132,6 +134,7 @@ function renderTitle() {
   const begin = el("button", "begin", "Begin");
   // A real button press: later the same gesture unlocks audio.
   begin.onclick = () => {
+    unlockAudio();
     started = true;
     render();
   };
@@ -234,7 +237,10 @@ function render() {
   const cast = el("button", "", "Cast");
   const update = () => {
     const used = usedHandWords(input.value, hand);
-    tiles.forEach((tile, i) => tile.classList.toggle("used", used.includes(hand[i])));
+    tiles.forEach((tile, i) => {
+      if (used.includes(hand[i]) && !tile.classList.contains("used")) effect("chime");
+      tile.classList.toggle("used", used.includes(hand[i]));
+    });
     usedCount.textContent = `${used.length}/${TUNING.minHandWords} Hand words`;
     usedCount.className = used.length >= TUNING.minHandWords ? "ok" : "";
     total.textContent = `${wordCount(input.value)}/${TUNING.maxSpellWords} words`;
@@ -247,6 +253,7 @@ function render() {
     cast.disabled = input.disabled = true;
     cast.textContent = "Judging…";
     stage.classList.add("judging");
+    const stopShimmer = shimmer();
     let verdict: { forbidden: string; offence: number; defence: number; immune: boolean };
     try {
       const res = await fetch("/api/judge", {
@@ -263,6 +270,7 @@ function render() {
       cast.disabled = input.disabled = false;
       return;
     } finally {
+      stopShimmer();
       stage.classList.remove("judging");
     }
     const before = run;
@@ -289,6 +297,8 @@ function render() {
     result = lines.join("\n");
     await playReveal(revealCues(verdict, enemy, before, run), { stage, portrait, enemyBar, you, resultBox, banner }, lines, run, enemy.hp);
     render(); // the end state, whether the Reveal played out or was skipped
+    if (run.playerHp === 0) effect("lose");
+    else if (isWon(run)) effect("win");
   };
   const banner = el("div", "attack", icon("crossed-swords"), el("div", "", el("small", "", "Incoming"), attack));
   const resultBox = el("div", "result", result);
@@ -300,5 +310,37 @@ function render() {
   );
   input.focus();
 }
+
+// Audio toggles live in a corner outside #app, so a render never touches them.
+function toggle(key: keyof typeof settings, glyph: string, label: string): HTMLButtonElement {
+  const button = el("button", "", icon(glyph));
+  const show = () => {
+    button.classList.toggle("off", !settings[key]);
+    button.title = `${label}: ${settings[key] ? "on" : "off"}`;
+    button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-pressed", String(settings[key]));
+  };
+  button.onclick = () => {
+    setSetting(key, !settings[key]);
+    show();
+  };
+  button.addEventListener("refresh", show);
+  show();
+  return button;
+}
+const toggles = el("div", "toggles", toggle("effects", "speaker", "Sound effects"));
+document.body.append(toggles);
+
+addEventListener("click", (e) => {
+  if ((e.target as Element).closest("button")) effect("click");
+});
+// M mutes or unmutes everything, except in the Spell input where it types a letter.
+addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() !== "m" || e.target instanceof HTMLTextAreaElement || e.metaKey || e.ctrlKey || e.altKey) return;
+  const on = !(settings.effects || settings.music);
+  setSetting("effects", on);
+  setSetting("music", on);
+  for (const button of toggles.children) button.dispatchEvent(new Event("refresh"));
+});
 
 render();
