@@ -237,6 +237,46 @@ body[data-variant="disclose"] .log small.lesson { color: var(--glow); }
 }
 
 /* === variant: show === */
+/* Verdict Pips: one Cast is two rows — sword and shield, five pips each, one number. */
+body[data-variant="show"] .result { min-height: 0; white-space: normal; }
+body[data-variant="show"] .strip { display: grid; gap: 0.3rem; min-height: 3.5rem; align-content: center; }
+body[data-variant="show"] .vrow { display: grid; grid-template-columns: 1.6rem 5em auto; gap: 0.15rem 0.7rem; align-items: center; }
+body[data-variant="show"] .vrow.flat { grid-template-columns: auto minmax(0, 1fr); }
+body[data-variant="show"] .vrow .icon { width: 1.4rem; height: 1.4rem; color: var(--dim); }
+body[data-variant="show"] .pips { font-size: 1.15rem; line-height: 1; letter-spacing: 0.18em; white-space: nowrap; }
+body[data-variant="show"] .pips i { font-style: normal; }
+body[data-variant="show"] .pips .on { color: var(--gold); text-shadow: 0 0 10px #d9c48a66; }
+body[data-variant="show"] .pips .off { color: var(--line); }
+body[data-variant="show"] .vrow.struck .pips { text-decoration: line-through; text-decoration-color: var(--blood); text-decoration-thickness: 2px; }
+body[data-variant="show"] .vrow.struck .pips .on { color: var(--dim); text-shadow: none; }
+body[data-variant="show"] .strip.kill .pips .on { text-shadow: 0 0 18px var(--gold); }
+body[data-variant="show"] .hint { grid-column: 2 / -1; font-size: 0.9rem; line-height: 1.25; color: var(--dim); }
+body[data-variant="show"] .chip { justify-self: start; font: 700 0.8rem "Cinzel", serif; letter-spacing: 0.12em; text-transform: uppercase; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+body[data-variant="show"] .chip.hit { font-size: 1.05rem; color: var(--gold); }
+body[data-variant="show"] .chip.hurt { font-size: 1.05rem; color: #ff7a63; }
+body[data-variant="show"] .chip.tag, body[data-variant="show"] .chip.good { padding: 0.05rem 0.6rem; border: 1px solid currentColor; border-radius: 1rem; }
+body[data-variant="show"] .chip.tag { color: var(--blood); }
+body[data-variant="show"] .chip.good { color: var(--glow); }
+/* Turn 0: the same two rows, empty and named, so the mapping is learnt before the first Cast */
+body[data-variant="show"] .strip.legend { opacity: 0.4; }
+body[data-variant="show"] .legend small { font: 700 0.7rem "Cinzel", serif; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
+/* Staged: each row lands on its own Reveal beat, so the text never races the animation */
+body[data-variant="show"] .staged .vrow { opacity: 0; }
+body[data-variant="show"] .staged .vrow.in { opacity: 1; animation: show-row-in 0.35s ease-out; }
+@keyframes show-row-in { from { opacity: 0; transform: translateX(-0.6rem); } }
+/* Ghost chunk: the lost HP lingers half a second behind the fill */
+body[data-variant="show"] .hp-track { position: relative; }
+body[data-variant="show"] .hp-fill { position: relative; }
+body[data-variant="show"] .hp-ghost { position: absolute; left: 0; top: 0; height: 100%; background: #ff7a6366; transition: width 0.5s 0.5s ease-out; }
+/* Combat log: the same two rows, shrunk. History, not a second result panel. */
+body[data-variant="show"] .log .verdict { grid-template-columns: 1.4rem minmax(0, 1fr); gap: 0.15rem 0.4rem; padding: 0.45rem 0 0.45rem 0.6rem; background: none; border-left: 2px solid var(--line); border-radius: 0; }
+body[data-variant="show"] .log .verdict b { font-size: 0.7rem; letter-spacing: 0; color: var(--dim); }
+body[data-variant="show"] .log .verdict q { grid-column: 2; font-size: 0.9rem; color: var(--dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+body[data-variant="show"] .log .mini { grid-column: 2; flex-wrap: wrap; justify-content: start; gap: 0.15rem 1.2rem; }
+body[data-variant="show"] .mini .vrow { grid-template-columns: 1rem auto auto; gap: 0.35rem; }
+body[data-variant="show"] .mini .icon { width: 0.9rem; height: 0.9rem; }
+body[data-variant="show"] .mini .pips { font-size: 0.8rem; letter-spacing: 0.1em; }
+body[data-variant="show"] .mini .chip { padding: 0; border: 0; font-size: 0.7rem; }
 
 /* === variant: moment === */
 /* The outcome is a beat over the stage, then it retires into the Combat log. */

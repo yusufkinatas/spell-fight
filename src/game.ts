@@ -62,7 +62,8 @@ export function applyCast(run: Run, enemy: Pick<Enemy, "power" | "instantKill">,
 
 // Combat log of the current Battle, newest entry first. Flavour lines are not stored.
 export type LogEntry =
-  | { kind: "turn"; turn: number; spell: string; attack: string; offence: number; defence: number; enemyHpLost: number; playerHpLost: number; immune: boolean; hollow: boolean; instantKill: boolean; reason: string }
+  // `judged` is the raw Offence the Judge gave, kept so the UI can show what a negated spell had scored.
+  | { kind: "turn"; turn: number; spell: string; attack: string; offence: number; judged: number; defence: number; enemyHpLost: number; playerHpLost: number; immune: boolean; hollow: boolean; instantKill: boolean; reason: string }
   | { kind: "fizzle"; spell: string; forbidden: string }
   | { kind: "phase" };
 
@@ -70,7 +71,7 @@ export type LogEntry =
 export function logTurn(log: LogEntry[], spell: string, attack: string, enemy: Pick<Enemy, "instantKill">, verdict: { offence: number; defence: number; immune?: boolean; hollow?: boolean }, before: Run, after: Run, reason = ""): LogEntry[] {
   const offence = offenceOf(verdict);
   const turn = log.filter((e) => e.kind === "turn").length + 1;
-  return [{ kind: "turn", turn, spell, attack, offence, defence: verdict.defence, enemyHpLost: before.enemyHp - after.enemyHp, playerHpLost: before.playerHp - after.playerHp, immune: !!verdict.immune, hollow: !!verdict.hollow, instantKill: enemy.instantKill && offence === 5, reason }, ...log];
+  return [{ kind: "turn", turn, spell, attack, offence, judged: verdict.offence, defence: verdict.defence, enemyHpLost: before.enemyHp - after.enemyHp, playerHpLost: before.playerHp - after.playerHp, immune: !!verdict.immune, hollow: !!verdict.hollow, instantKill: enemy.instantKill && offence === 5, reason }, ...log];
 }
 
 export const logFizzle = (log: LogEntry[], spell: string, forbidden: string): LogEntry[] => [{ kind: "fizzle", spell, forbidden }, ...log];

@@ -169,3 +169,7 @@ export const MOMENT_FIZZLE_HINT = "Nothing was cast, no HP changed. Write it aga
 // variant disclose: the primer in the verdict strip before the first Cast of a Run, and the Fizzle's reassurance.
 export const DISCLOSE_FIRST_HINT = "Answer the Attack, and name the force that does the harm.";
 export const DISCLOSE_FIZZLE_AGAIN = "Cast again — nothing was lost.";
+
+// variant "show": the whole lesson in one line under the struck pips; the chip beside them already says HOLLOW or IMMUNE.
+export const HOLLOW_HINT = "Name the force that does the harm.";
+export const immuneHint = (to: string) => `Your spell relied on ${to}.`;
