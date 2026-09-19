@@ -77,3 +77,26 @@ export const logFizzle = (log: LogEntry[], spell: string, forbidden: string): Lo
 
 // Call with the run *before* nextEnemy: a new Battle clears the log, the boss's Phase change keeps it under a divider.
 export const logNextEnemy = (log: LogEntry[], run: Run): LogEntry[] => (isPhaseChange(run) ? [{ kind: "phase" }, ...log] : []);
+
+// Reveal cues: the ordered beats of one Verdict's playback. The DOM and audio layers only play them; they decide nothing.
+// `hit` intensity is the effective Offence 0-5, `hurt` intensity is the damage taken.
+export type Cue =
+  | { kind: "cast" | "fizzle" | "immune" | "instant-kill" | "enemy-death" | "barrier-shatter" | "attack-lands" | "shield" | "player-death" }
+  | { kind: "hit"; intensity: number; damage: number }
+  | { kind: "hurt"; intensity: number };
+
+export function revealCues(verdict: { forbidden?: string; offence: number; defence: number; immune?: boolean }, enemy: Pick<Enemy, "instantKill">, before: Run, after: Run): Cue[] {
+  if (verdict.forbidden && verdict.forbidden !== "none") return [{ kind: "cast" }, { kind: "fizzle" }];
+  const offence = offenceOf(verdict);
+  const instant = enemy.instantKill && offence === 5;
+  const cues: Cue[] = [{ kind: "cast" }, verdict.immune ? { kind: "immune" } : instant ? { kind: "instant-kill" } : { kind: "hit", intensity: offence, damage: before.enemyHp - after.enemyHp }];
+  // Only an instant kill skips the Attack beat: a dying enemy still strikes, then falls.
+  if (!instant) {
+    cues.push({ kind: "attack-lands" });
+    if (verdict.defence >= 4) cues.push({ kind: "shield" });
+    if (after.playerHp < before.playerHp) cues.push({ kind: "hurt", intensity: before.playerHp - after.playerHp });
+  }
+  if (after.enemyHp === 0) cues.push({ kind: isPhaseChange(after) ? "barrier-shatter" : "enemy-death" });
+  if (after.playerHp === 0) cues.push({ kind: "player-death" });
+  return cues;
+}

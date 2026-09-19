@@ -1,7 +1,7 @@
 // Pure game logic checks. Run: npm test
 import assert from "node:assert/strict";
 import { ENEMIES, FORBIDDEN_LABELS, WORDS } from "../src/content.ts";
-import { TUNING, applyCast, canCast, damageTaken, drawHand, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, usedHandWords, type LogEntry } from "../src/game.ts";
+import { TUNING, applyCast, canCast, damageTaken, drawHand, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, revealCues, usedHandWords, type LogEntry } from "../src/game.ts";
 import { FORBIDDEN_OPTIONS } from "../src/judge.ts";
 
 const hand = ["river", "thorn", "flame", "ash", "whisper", "iron"];
@@ -86,6 +86,22 @@ assert.deepEqual(Object.keys(FORBIDDEN_OPTIONS).sort(), ["none", ...Object.keys(
   const kept = logNextEnemy(log, { enemy: ENEMIES.length - 2, enemyHp: 0, playerHp: 9 });
   assert.deepEqual(kept, [{ kind: "phase" }, ...log], "the boss Phase change keeps the log under a divider");
   assert.partialDeepStrictEqual(logTurn(kept, "s", "a", boss, verdict, before, before)[0], { turn: 3 }, "turn numbers continue across the Phase change");
+}
+
+// Reveal cues: derived purely from the Verdict, the enemy and the before/after Run.
+{
+  const kinds = (verdict: { forbidden?: string; offence: number; defence: number; immune?: boolean }, enemy: (typeof ENEMIES)[number], before: { enemy: number; enemyHp: number; playerHp: number }) =>
+    revealCues(verdict, enemy, before, applyCast(before, enemy, verdict)).map((c) => c.kind);
+  const golemRun = { enemy: 0, enemyHp: 8, playerHp: 20 };
+  assert.deepEqual(kinds({ offence: 5, defence: 0 }, ENEMIES[0], golemRun), ["cast", "instant-kill", "enemy-death"], "Instant kill: no attack or hurt cues");
+  assert.deepEqual(kinds({ offence: 3, defence: 0 }, ENEMIES[0], { ...golemRun, enemyHp: 2 }), ["cast", "hit", "attack-lands", "hurt", "enemy-death"], "a dying enemy still attacks");
+  assert.deepEqual(kinds({ offence: 5, defence: 2, immune: true }, ENEMIES[3], { enemy: 3, enemyHp: 12, playerHp: 20 }), ["cast", "immune", "attack-lands", "hurt"], "immune instead of a hit");
+  assert.deepEqual(kinds({ offence: 2, defence: 4 }, ENEMIES[0], golemRun), ["cast", "hit", "attack-lands", "shield", "hurt"]);
+  assert.deepEqual(kinds({ offence: 2, defence: 5 }, ENEMIES[0], golemRun), ["cast", "hit", "attack-lands", "shield"], "a full ward: shield, nothing to hurt");
+  assert.deepEqual(kinds({ offence: 5, defence: 5 }, barrier, { enemy: ENEMIES.length - 2, enemyHp: 3, playerHp: 9 }), ["cast", "hit", "attack-lands", "shield", "barrier-shatter"], "Phase-1 death is a barrier-shatter, not an enemy-death");
+  assert.deepEqual(kinds({ offence: 5, defence: 0 }, boss, { enemy: ENEMIES.length - 1, enemyHp: 3, playerHp: 2 }).slice(-2), ["enemy-death", "player-death"], "player-death comes last");
+  assert.deepEqual(revealCues({ offence: 4, defence: 1 }, ENEMIES[0], golemRun, applyCast(golemRun, ENEMIES[0], { offence: 4, defence: 1 })).slice(1, 4), [{ kind: "hit", intensity: 4, damage: 4 }, { kind: "attack-lands" }, { kind: "hurt", intensity: 2 }]);
+  assert.deepEqual(kinds({ forbidden: "judge", offence: 5, defence: 5 }, ENEMIES[0], golemRun), ["cast", "fizzle"]);
 }
 
 console.log("ok");

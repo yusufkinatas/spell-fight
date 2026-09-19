@@ -1,5 +1,5 @@
 import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, PREMISE_LINE, WIN_LINE } from "./content.ts";
-import { TUNING, applyCast, canCast, drawHand, isPhaseChange, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, offenceOf, usedHandWords, wordCount, type LogEntry } from "./game.ts";
+import { TUNING, applyCast, canCast, drawHand, isPhaseChange, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, offenceOf, revealCues, usedHandWords, wordCount, type Cue, type LogEntry, type Run } from "./game.ts";
 import { icon } from "./icons.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -19,12 +19,105 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", ...ch
   return node;
 }
 
+function setHp(row: HTMLElement, hp: number, max: number) {
+  row.querySelector<HTMLElement>(".hp-fill")!.style.width = `${(100 * hp) / max}%`;
+  row.querySelector("span")!.textContent = `${hp}/${max}`;
+}
+
 function hpBar(label: string, hp: number, max: number): HTMLElement {
-  const fill = el("div", "hp-fill");
-  fill.style.width = `${(100 * hp) / max}%`;
-  const row = el("div", "hp", icon("glass-heart"), el("div", "hp-track", fill), el("span", "", `${hp}/${max}`));
+  const row = el("div", "hp", icon("glass-heart"), el("div", "hp-track", el("div", "hp-fill")), el("span"));
   row.title = label;
+  setHp(row, hp, max);
   return row;
+}
+
+// Reveal playback: each cue is a CSS animation (intensity in --i, 0..1) and a wait. It only plays cues; game.ts decided them.
+const CUE_MS: Record<Cue["kind"], number> = { cast: 350, fizzle: 600, hit: 500, immune: 500, "instant-kill": 700, "attack-lands": 350, shield: 300, hurt: 500, "barrier-shatter": 700, "enemy-death": 700, "player-death": 700 };
+type RevealUi = { stage: HTMLElement; portrait: HTMLElement; enemyBar: HTMLElement; you: HTMLElement; resultBox: HTMLElement; banner: HTMLElement };
+
+async function playReveal(cues: Cue[], ui: RevealUi, lines: string[], after: Run, enemyMaxHp: number) {
+  let skipped = false;
+  let wake = () => {};
+  // Any key, click or tap skips to the end state.
+  const skip = () => {
+    skipped = true;
+    wake();
+  };
+  addEventListener("keydown", skip);
+  addEventListener("pointerdown", skip);
+  const fx = (target: HTMLElement, name: string, intensity = 1) => {
+    target.style.setProperty("--i", String(Math.min(1, intensity)));
+    target.classList.add(name);
+  };
+  const float = (target: HTMLElement, text: string) => target.append(el("b", "float", text));
+  ui.resultBox.textContent = "";
+  const say = (line: string) => ui.resultBox.append(line + "\n");
+  for (const cue of cues) {
+    if (skipped) break;
+    switch (cue.kind) {
+      case "cast": {
+        // The Spell flies from the scroll up to the Portrait.
+        const from = ui.stage.getBoundingClientRect();
+        const to = ui.portrait.getBoundingClientRect();
+        const bolt = el("i", "bolt");
+        bolt.style.setProperty("--x", `${to.left + to.width / 2 - from.left}px`);
+        bolt.style.setProperty("--y", `${to.top + to.height / 2 - from.top}px`);
+        ui.stage.append(bolt);
+        break;
+      }
+      case "fizzle":
+        ui.stage.append(el("i", "puff"));
+        say(lines[0]);
+        break;
+      case "hit":
+        fx(ui.portrait, "hit", cue.intensity / 5);
+        float(ui.portrait, cue.damage ? `−${cue.damage}` : "miss");
+        setHp(ui.enemyBar, after.enemyHp, enemyMaxHp);
+        say(lines[0]);
+        break;
+      case "immune":
+        fx(ui.portrait, "immune");
+        float(ui.portrait, "immune");
+        say(lines[0]);
+        break;
+      case "instant-kill":
+        fx(ui.stage, "finisher");
+        fx(ui.portrait, "hit");
+        float(ui.portrait, "perfect");
+        setHp(ui.enemyBar, 0, enemyMaxHp);
+        say(lines[0]);
+        say(lines[1]);
+        break;
+      case "attack-lands":
+        fx(ui.banner, "lands");
+        say(lines[1]);
+        break;
+      case "shield":
+        fx(ui.you, "shield");
+        break;
+      case "hurt":
+        fx(ui.stage, "hurt", cue.intensity / 6);
+        float(ui.you, `−${cue.intensity}`);
+        setHp(ui.you, after.playerHp, TUNING.playerHp);
+        break;
+      case "barrier-shatter":
+        ui.portrait.classList.replace("barrier", "shatter");
+        break;
+      case "enemy-death":
+        ui.portrait.classList.remove("hit");
+        fx(ui.portrait, "dying");
+        break;
+      case "player-death":
+        fx(ui.stage, "falling");
+        break;
+    }
+    await new Promise<void>((resolve) => {
+      wake = resolve;
+      setTimeout(resolve, CUE_MS[cue.kind]);
+    });
+  }
+  removeEventListener("keydown", skip);
+  removeEventListener("pointerdown", skip);
 }
 
 function link(href: string, text: string): HTMLAnchorElement {
@@ -93,20 +186,23 @@ function render() {
   if (!started) return renderTitle();
   const enemy = ENEMIES[run.enemy];
   const phaseChange = isPhaseChange(run);
+  // The Barrier ring is up only while Phase 1 lives; a fallen enemy stays faded on the end screen.
+  const portrait = el("div", run.enemyHp === 0 ? "portrait dead" : phaseChange ? "portrait barrier" : "portrait", icon(enemy.portrait));
+  const enemyBar = hpBar("Enemy HP", run.enemyHp, enemy.hp);
   const stage = el(
     "div",
-    "stage",
+    run.playerHp === 0 ? "stage fallen" : "stage",
     el(
       "div",
       "enemy",
-      el("div", phaseChange ? "portrait barrier" : "portrait", icon(enemy.portrait)),
+      portrait,
       el(
         "div",
         "enemy-info",
         el("h1", "", enemy.name),
         el("p", "", enemy.description),
         ...(enemy.immunity ? [el("div", "badge", icon("checked-shield"), ` Immune to ${enemy.immunity.to}`)] : []),
-        hpBar("Enemy HP", run.enemyHp, enemy.hp),
+        enemyBar,
       ),
     ),
   );
@@ -150,6 +246,8 @@ function render() {
   cast.onclick = async () => {
     cast.disabled = input.disabled = true;
     cast.textContent = "Judging…";
+    stage.classList.add("judging");
+    let verdict: { forbidden: string; offence: number; defence: number; immune: boolean };
     try {
       const res = await fetch("/api/judge", {
         method: "POST",
@@ -157,38 +255,46 @@ function render() {
         body: JSON.stringify({ enemy: { name: enemy.name, description: enemy.description }, attack, spell: input.value }),
       });
       if (!res.ok) throw new Error(`judge ${res.status}`);
-      const verdict: { forbidden: string; offence: number; defence: number; immune: boolean } = await res.json();
-      if (verdict.forbidden !== "none") {
-        // Free retry: no HP change, same hand, same attack. The scores are ignored.
-        const label = FORBIDDEN_LABELS[verdict.forbidden] ?? verdict.forbidden;
-        result = `${FIZZLE_LINE} (${label})`;
-        log = logFizzle(log, input.value, label);
-        return render();
-      }
-      const before = run;
-      run = applyCast(run, enemy, verdict);
-      log = logTurn(log, input.value, attack, enemy, verdict, before, run);
-      const offence = offenceOf(verdict);
-      const instant = enemy.instantKill && offence === 5;
-      // Only an instant kill stops the attack, so only then is there no defence line to show.
-      const defenceLine = instant ? KILL_LINE : DEFENCE_LINES[verdict.defence];
-      result =
-        `${(verdict.immune && enemy.immunity?.line) || (instant ? INSTANT_KILL_LINE : OFFENCE_LINES[offence])} (−${before.enemyHp - run.enemyHp} enemy HP)\n` +
-        `${defenceLine} (−${before.playerHp - run.playerHp} HP)\n` +
-        `Offence ${offence}/5 · Defence ${verdict.defence}/5`;
-      turn++;
-      hand = drawHand();
-      render();
+      verdict = await res.json();
     } catch (e) {
       console.error(e);
       // Same hand, same attack: the player can simply cast again.
       cast.textContent = "The judge is silent. Cast again";
       cast.disabled = input.disabled = false;
+      return;
+    } finally {
+      stage.classList.remove("judging");
     }
+    const before = run;
+    let lines: string[];
+    if (verdict.forbidden !== "none") {
+      // Free retry: no HP change, same hand, same attack. The scores are ignored.
+      const label = FORBIDDEN_LABELS[verdict.forbidden] ?? verdict.forbidden;
+      lines = [`${FIZZLE_LINE} (${label})`];
+      log = logFizzle(log, input.value, label);
+    } else {
+      run = applyCast(run, enemy, verdict);
+      log = logTurn(log, input.value, attack, enemy, verdict, before, run);
+      const offence = offenceOf(verdict);
+      const instant = enemy.instantKill && offence === 5;
+      lines = [
+        `${(verdict.immune && enemy.immunity?.line) || (instant ? INSTANT_KILL_LINE : OFFENCE_LINES[offence])} (−${before.enemyHp - run.enemyHp} enemy HP)`,
+        // Only an instant kill stops the attack, so only then is there no defence line to show.
+        `${instant ? KILL_LINE : DEFENCE_LINES[verdict.defence]} (−${before.playerHp - run.playerHp} HP)`,
+        `Offence ${offence}/5 · Defence ${verdict.defence}/5`,
+      ];
+      turn++;
+      hand = drawHand();
+    }
+    result = lines.join("\n");
+    await playReveal(revealCues(verdict, enemy, before, run), { stage, portrait, enemyBar, you, resultBox, banner }, lines, run, enemy.hp);
+    render(); // the end state, whether the Reveal played out or was skipped
   };
+  const banner = el("div", "attack", icon("crossed-swords"), el("div", "", el("small", "", "Incoming"), attack));
+  const resultBox = el("div", "result", result);
   stage.append(
-    el("div", "attack", icon("crossed-swords"), el("div", "", el("small", "", "Incoming"), attack)),
-    el("div", "result", result),
+    banner,
+    resultBox,
     el("div", "hand", ...tiles),
     el("div", "casting", el("div", "scroll", input, el("div", "limits", usedCount, total)), el("div", "cast-row", you, cast)),
   );
