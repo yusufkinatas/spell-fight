@@ -86,8 +86,8 @@ const hollowQuestion = {
   instructions:
     "`spell` is a magic spell cast by a player at the creature in `enemy`. Does the spell in `spell` only declare that the creature is hurt, defeated or destroyed, or claim great or absolute power, without describing any means by which that happens?",
   criteria: {
-    true: "The spell only states a result or claims power, such as 'this spell kills anything instantly', 'I destroy you with infinite power' or 'the golem dies'. It names no force, element, object or action that does the harm.",
-    false: "The spell names something that does the harm, such as fire, frost, thorns, a blade, wind, light or a curse acting on the creature, even briefly or vaguely. A spell that does not try to hurt the creature at all also counts as no.",
+    true: "The spell only states a result or claims power, such as 'this spell kills anything instantly', 'I destroy you with infinite power' or 'the golem dies'. Nothing in it is described as doing the harm. Loose words that are only listed beside the declaration and do nothing, as in 'the enemy dies instantly bone storm dream', do not count as a means.",
+    false: "The spell describes something doing the harm, such as fire burning, frost freezing, thorns tearing, a blade cutting, wind scattering or a curse acting on the creature, even briefly or vaguely. A spell that does not try to hurt the creature at all also counts as no.",
   },
 };
 

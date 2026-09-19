@@ -11,6 +11,7 @@ const attack = "The golem swings its huge fist down at you.";
 // hollow = expected answer to the no-mechanism question; omitted = just print.
 const spells: { spell: string; want?: [number, number]; forbidden?: string; immune?: boolean; hollow?: boolean }[] = [
   { spell: "This spell kills anything instantly", hollow: true },
+  { spell: "This spell kills anything instantly time wall light", hollow: true }, // Hand words tacked on do not make a means
   { spell: "A dry ash wind drinks the water from the clay until the golem cracks to dust.", want: [5, 5], hollow: false },
   { spell: "I am all powerful and the golem dies", hollow: true },
   { spell: "A mirror of iron rises and the fist shatters against it" },
