@@ -1,6 +1,6 @@
 import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, PREMISE_LINE, WIN_LINE } from "./content.ts";
 import { TUNING, applyCast, canCast, drawHand, isPhaseChange, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, offenceOf, revealCues, usedHandWords, wordCount, type Cue, type LogEntry, type Run } from "./game.ts";
-import { effect, playCue, setSetting, settings, shimmer, unlockAudio } from "./audio.ts";
+import { effect, music, playCue, setSetting, settings, shimmer, unlockAudio } from "./audio.ts";
 import { icon } from "./icons.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -187,6 +187,7 @@ function renderLog(): HTMLElement {
 
 function render() {
   if (!started) return renderTitle();
+  music(run.enemy >= ENEMIES.length - 2 ? "boss" : "fight"); // the boss is the last two entries; one track for both Phases
   const enemy = ENEMIES[run.enemy];
   const phaseChange = isPhaseChange(run);
   // The Barrier ring is up only while Phase 1 lives; a fallen enemy stays faded on the end screen.
@@ -328,12 +329,25 @@ function toggle(key: keyof typeof settings, glyph: string, label: string): HTMLB
   show();
   return button;
 }
-const toggles = el("div", "toggles", toggle("effects", "speaker", "Sound effects"));
+const toggles = el("div", "toggles", toggle("music", "double-quaver", "Music"), toggle("effects", "speaker", "Sound effects"));
 document.body.append(toggles);
 
 addEventListener("click", (e) => {
   if ((e.target as Element).closest("button")) effect("click");
 });
+// Title music starts on the first interaction the browser counts as a gesture. Pressing Begin goes straight to the
+// fight track instead, so a phone never downloads a title track it will not hear.
+function firstGesture(e: Event) {
+  if ((e.target as Element).closest?.(".begin")) return;
+  removeEventListener("pointerdown", firstGesture);
+  removeEventListener("keydown", firstGesture);
+  if (started) return;
+  unlockAudio();
+  music("title");
+}
+addEventListener("pointerdown", firstGesture);
+addEventListener("keydown", firstGesture);
+
 // M mutes or unmutes everything, except in the Spell input where it types a letter.
 addEventListener("keydown", (e) => {
   if (e.key.toLowerCase() !== "m" || e.target instanceof HTMLTextAreaElement || e.metaKey || e.ctrlKey || e.altKey) return;

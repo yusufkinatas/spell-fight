@@ -1,5 +1,5 @@
-// All audio: synthesized effects and settings. It plays what it is told to; it decides nothing.
-// Effects are WebAudio oscillators, noise and envelopes: no audio files.
+// All audio: synthesized effects, music and settings. It plays what it is told to; it decides nothing.
+// Effects are WebAudio oscillators, noise and envelopes: no audio files. Music is three OGG files in public/music.
 
 import type { Cue } from "./game.ts";
 
@@ -12,6 +12,8 @@ try {
 
 let ctx: AudioContext | undefined;
 let effectsOut: GainNode;
+let musicOut: GainNode; // the music toggle
+let duckOut: GainNode; // dips under the jingles
 
 // Call from a user gesture (the Begin press): browsers, phones above all, only start audio from one.
 export function unlockAudio() {
@@ -20,12 +22,18 @@ export function unlockAudio() {
   if (!effectsOut) {
     effectsOut = ctx.createGain();
     effectsOut.connect(ctx.destination);
+    musicOut = ctx.createGain();
+    duckOut = ctx.createGain();
+    musicOut.connect(duckOut).connect(ctx.destination);
   }
   apply();
 }
 
 function apply() {
-  if (ctx) effectsOut.gain.value = settings.effects ? 0.5 : 0;
+  if (!ctx) return;
+  effectsOut.gain.value = settings.effects ? 0.5 : 0;
+  musicOut.gain.value = settings.music ? 0.4 : 0;
+  syncMusic();
 }
 
 export function setSetting(key: keyof typeof settings, on: boolean) {
@@ -101,7 +109,9 @@ const EFFECTS = {
 };
 
 export function effect(name: keyof typeof EFFECTS, intensity = 1) {
-  if (ctx && settings.effects) EFFECTS[name](Math.min(1, intensity));
+  if (!ctx || !settings.effects) return;
+  EFFECTS[name](Math.min(1, intensity));
+  if (name === "win" || name === "lose") duck(2.5);
 }
 
 // Same scaling as the visuals: Offence out of 5, damage out of the hardest hit in the game.
@@ -140,4 +150,96 @@ export function shimmer(): () => void {
     amp.gain.setTargetAtTime(0, ctx!.currentTime, 0.05);
     [wobble, ...voices].forEach((o) => o.stop(ctx!.currentTime + 0.4));
   };
+}
+
+// --- music ----------------------------------------------------------------------------------------------------------
+
+// To swap a track, replace its file in public/music. `crossfade` is the seconds of overlap when the track loops into
+// itself (for tracks with an ending); 0 means the file is a seamless loop and plays gapless.
+const TRACKS = {
+  title: { url: "/music/title.ogg", crossfade: 5 }, // "Ossuary 1 - A Beginning", Kevin MacLeod
+  fight: { url: "/music/fight.ogg", crossfade: 4 }, // "Clash Defiant", Kevin MacLeod
+  boss: { url: "/music/boss.ogg", crossfade: 0 }, // "Epic Boss Battle", Juhani Junkala
+};
+export type Slot = keyof typeof TRACKS;
+const SLOT_FADE = 1.5; // seconds to crossfade between slots
+
+const buffers: Partial<Record<Slot, Promise<AudioBuffer>>> = {};
+let wanted: Slot | undefined; // what the game asked for
+let playing: Slot | undefined; // what is sounding (or loading)
+let stopVoice = () => {};
+let request = 0; // only the latest request may start a voice
+
+// Ask for a slot. Asking for the one already playing changes nothing, so the boss track runs on through the Phase change.
+export function music(slot: Slot) {
+  wanted = slot;
+  syncMusic();
+}
+
+function syncMusic() {
+  const slot = settings.music ? wanted : undefined;
+  if (!ctx || slot === playing) return;
+  stopVoice();
+  stopVoice = () => {};
+  playing = slot;
+  const mine = ++request;
+  if (!slot) return;
+  // Fetched lazily, only once audio is unlocked and music is on: never before the first interaction.
+  buffers[slot] ??= fetch(TRACKS[slot].url)
+    .then((res) => res.arrayBuffer())
+    .then((data) => ctx!.decodeAudioData(data));
+  buffers[slot].then(
+    (buffer) => {
+      if (mine === request) stopVoice = startVoice(buffer, TRACKS[slot].crossfade);
+    },
+    (e) => {
+      console.error(e); // no music is not worth breaking the game over
+      delete buffers[slot];
+    },
+  );
+}
+
+// Loops `buffer` until the returned function fades it out.
+function startVoice(buffer: AudioBuffer, crossfade: number): () => void {
+  const out = ctx!.createGain();
+  out.gain.setValueAtTime(0, ctx!.currentTime);
+  out.gain.linearRampToValueAtTime(1, ctx!.currentTime + SLOT_FADE);
+  out.connect(musicOut);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let sources: AudioBufferSourceNode[] = [];
+  // One pass of the track starting at audio time `t`; with a crossfade it fades in and out and books the next pass.
+  const pass = (t: number, first: boolean) => {
+    const source = ctx!.createBufferSource();
+    source.buffer = buffer;
+    source.loop = crossfade === 0;
+    const amp = ctx!.createGain();
+    source.connect(amp).connect(out);
+    source.start(t);
+    sources = [...sources.slice(-1), source];
+    if (crossfade === 0) return;
+    const next = t + buffer.duration - crossfade;
+    if (!first) {
+      amp.gain.setValueAtTime(0, t);
+      amp.gain.linearRampToValueAtTime(1, t + crossfade);
+    }
+    amp.gain.setValueAtTime(1, next);
+    amp.gain.linearRampToValueAtTime(0, next + crossfade);
+    // Book the next pass on the audio clock a few seconds early, so a throttled timer cannot open a gap.
+    timer = setTimeout(() => pass(next, false), (next - ctx!.currentTime - 5) * 1000);
+  };
+  pass(ctx!.currentTime, true);
+  return () => {
+    clearTimeout(timer);
+    out.gain.cancelScheduledValues(ctx!.currentTime);
+    out.gain.setValueAtTime(out.gain.value, ctx!.currentTime);
+    out.gain.linearRampToValueAtTime(0, ctx!.currentTime + SLOT_FADE);
+    sources.forEach((source) => source.stop(ctx!.currentTime + SLOT_FADE));
+  };
+}
+
+function duck(seconds: number) {
+  const t = ctx!.currentTime;
+  duckOut.gain.cancelScheduledValues(t);
+  duckOut.gain.setTargetAtTime(0.15, t, 0.05);
+  duckOut.gain.setTargetAtTime(1, t + seconds, 0.4);
 }
