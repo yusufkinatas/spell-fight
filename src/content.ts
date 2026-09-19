@@ -1,14 +1,14 @@
 // All game content: enemies, their attacks, the word pool and every line of feedback text.
 // DRAFT — edit freely. No logic lives here; the rules are in game.ts.
 
-// `instantKill`: offence 5 kills this enemy outright, before its attack lands. `emoji` is placeholder art, never judged.
+// `instantKill`: offence 5 kills this enemy outright, before its attack lands. `portrait` names a glyph in icons.ts, never judged.
 // `immunity`: shown on the enemy card as "Immune to <to>." A spell that mainly relies on <to> does 0 damage and shows `line`.
-export type Enemy = { emoji: string; name: string; description: string; hp: number; power: number; instantKill: boolean; attacks: string[]; immunity?: { to: string; line: string } };
+export type Enemy = { portrait: string; name: string; description: string; hp: number; power: number; instantKill: boolean; attacks: string[]; immunity?: { to: string; line: string } };
 
 // `name` and `description` are shown to the player and sent to the judge unchanged.
 export const ENEMIES: Enemy[] = [
   {
-    emoji: "🗿",
+    portrait: "rock-golem",
     name: "Clay Golem",
     description: "A giant of wet river clay, slow and heavy.",
     hp: 8,
@@ -21,7 +21,7 @@ export const ENEMIES: Enemy[] = [
     ],
   },
   {
-    emoji: "💀",
+    portrait: "crowned-skull",
     name: "Skeleton Knight",
     description: "The bones of a dead knight in rusted plate armour, tireless and quick with its sword.",
     hp: 10,
@@ -34,7 +34,7 @@ export const ENEMIES: Enemy[] = [
     ],
   },
   {
-    emoji: "🧙‍♀️",
+    portrait: "witch-face",
     name: "Bog Witch",
     description: "A withered crone of the black marsh who brews poisons and commands its crawling things.",
     hp: 12,
@@ -47,7 +47,7 @@ export const ENEMIES: Enemy[] = [
     ],
   },
   {
-    emoji: "🔥",
+    portrait: "ifrit",
     name: "Fire Wraith",
     description: "A ghost of living flame and smoke with no solid body, drifting above the ground.",
     hp: 12,
@@ -62,7 +62,7 @@ export const ENEMIES: Enemy[] = [
   },
   // Final boss: two consecutive entries sharing a name. Phase 1 is the barrier, phase 2 the dragon itself. Neither can be instant-killed.
   {
-    emoji: "🔮",
+    portrait: "dragon-head",
     name: "Elder Dragon",
     description: "A huge old dragon coiled inside a dome of shimmering magical force. Nothing can touch the dragon while the dome holds, so every spell strikes the dome itself.",
     hp: 10,
@@ -75,7 +75,7 @@ export const ENEMIES: Enemy[] = [
     ],
   },
   {
-    emoji: "🐉",
+    portrait: "dragon-head",
     name: "Elder Dragon",
     description: "A huge old dragon of thick scales, claws and leathery wings, its dome gone, enraged and breathing fire.",
     hp: 14,
@@ -117,12 +117,15 @@ export const DEFENCE_LINES = [
   "The attack is stopped completely.",
 ];
 
+// The one-line premise on the title screen.
+export const PREMISE_LINE = "Six words in your hand, a monster at your throat. Write the spell that saves you.";
+
 export const INSTANT_KILL_LINE = "A perfect spell. The enemy is destroyed before it can strike.";
 export const KILL_LINE = "The enemy falls before its attack lands.";
 // Shown when a boss phase falls and the next entry has the same name.
-export const BARRIER_BREAKS_LINE = "💥 The barrier shatters. The boss stands exposed!";
-export const WIN_LINE = "🏆 The last enemy falls. You win!";
-export const LOSE_LINE = "💀 You have fallen. The run starts again from the first enemy.";
+export const BARRIER_BREAKS_LINE = "The barrier shatters. The boss stands exposed!";
+export const WIN_LINE = "The last enemy falls. You win!";
+export const LOSE_LINE = "You have fallen. The run starts again from the first enemy.";
 
 export const FIZZLE_LINE = "The spell fizzles.";
 // Keys match the judge's forbidden options (src/judge.ts); the test checks they stay in sync.
