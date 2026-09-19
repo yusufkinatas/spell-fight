@@ -77,12 +77,12 @@ assert.deepEqual(Object.keys(FORBIDDEN_OPTIONS).sort(), ["none", ...Object.keys(
   let log: LogEntry[] = [];
   let verdict = { offence: 4, defence: 1, immune: false };
   log = logTurn(log, "frost spell", "an attack", wraith, verdict, before, applyCast(before, wraith, verdict));
-  assert.deepEqual(log, [{ kind: "turn", turn: 1, spell: "frost spell", attack: "an attack", offence: 4, judged: 4, defence: 1, enemyHpLost: 4, playerHpLost: 4, immune: false, hollow: false, instantKill: false, reason: "" }]);
+  assert.deepEqual(log, [{ kind: "turn", turn: 1, spell: "frost spell", attack: "an attack", offence: 4, judged: 4, defence: 1, enemyHpLost: 4, playerHpLost: 4, immune: false, hollow: false, instantKill: false }]);
   log = logFizzle(log, "rude spell", "swearing or slurs");
   assert.deepEqual(log[0], { kind: "fizzle", spell: "rude spell", forbidden: "swearing or slurs" });
   verdict = { offence: 5, defence: 5, immune: true };
   log = logTurn(log, "fire spell", "an attack", wraith, verdict, before, applyCast(before, wraith, verdict));
-  assert.deepEqual(log[0], { kind: "turn", turn: 2, spell: "fire spell", attack: "an attack", offence: 0, judged: 5, defence: 5, enemyHpLost: 0, playerHpLost: 0, immune: true, hollow: false, instantKill: false, reason: "" }, "immune logs offence 0; the fizzle did not advance the turn number");
+  assert.deepEqual(log[0], { kind: "turn", turn: 2, spell: "fire spell", attack: "an attack", offence: 0, judged: 5, defence: 5, enemyHpLost: 0, playerHpLost: 0, immune: true, hollow: false, instantKill: false }, "immune logs offence 0; the fizzle did not advance the turn number");
   assert.equal(log.length, 3);
   assert.deepEqual(logNextEnemy(log, before), [], "next Battle clears the log");
   const kept = logNextEnemy(log, { enemy: ENEMIES.length - 2, enemyHp: 0, playerHp: 9 });

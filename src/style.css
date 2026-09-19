@@ -112,7 +112,6 @@ button:not(:disabled):active { background: var(--purple); }
 .log > p { color: var(--dim); }
 .log ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
 .log li { display: grid; gap: 0.1rem; padding: 0.5rem 0.7rem; background: var(--panel); border-left: 3px solid var(--line); border-radius: 3px; overflow-wrap: anywhere; }
-.log li:first-child { border-left-color: var(--gold); }
 .log b { font: 700 0.75rem "Cinzel", serif; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); }
 .log small { color: var(--dim); line-height: 1.25; }
 .log .scores { display: flex; justify-content: space-between; gap: 0.5rem; font-variant-numeric: lining-nums tabular-nums; }
@@ -182,153 +181,44 @@ button:not(:disabled):active { background: var(--purple); }
 .toggles .off { color: var(--dim); border-color: var(--line); }
 .toggles .off::after { content: ""; position: absolute; inset: 50% 18%; height: 2px; background: currentColor; transform: rotate(-45deg); }
 
-/* Prototype switcher chip, top left (the bottom belongs to the casting area) */
-.variant-chip { position: fixed; left: 0.5rem; top: 0.5rem; z-index: 5; padding: 0.1rem 0.6rem; font-size: 0.8rem; color: var(--bg); background: var(--glow); border-radius: 1rem; pointer-events: none; opacity: 0.85; }
-
-/* === variant: subtract === */
-/* One Turn, one row: the stage slot reuses the Combat log's row markup and styles, so only the log's own box is undone. */
-body[data-variant="subtract"] .turn { position: static; max-height: none; overflow: visible; padding: 0; border: 0; font-size: 1rem; }
-body[data-variant="subtract"] .turn:empty { display: none; } /* nothing Cast yet, and while a Reveal plays */
-body[data-variant="subtract"] .turn small { color: var(--gold); } /* the lesson is the only gold left on the stage */
-body[data-variant="subtract"] .log:not(.turn) li:first-child { border-left-color: var(--line); } /* the newest Turn is on the stage, not here */
-body[data-variant="subtract"] .stage.fallen .turn { filter: grayscale(1) brightness(0.55); }
-
-/* === variant: disclose === */
-/* One line of verdict above the banner; the prose, the lesson and the log open on demand. */
-body[data-variant="disclose"] .verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.9rem; min-height: 1.9em; font-size: 1rem; color: var(--gold); }
-body[data-variant="disclose"] .verdict.blank:empty { display: none; } /* turn 0 of a later Battle: no result, no gap. The height is kept once the Reveal fills it */
-body[data-variant="disclose"] .verdict > * { animation: disclose-in 0.25s ease-out; }
-@keyframes disclose-in { from { opacity: 0; transform: translateY(-2px); } }
-body[data-variant="disclose"] .verdict .hint { color: var(--dim); font-size: 0.95rem; }
-body[data-variant="disclose"] .verdict .half { display: flex; align-items: baseline; gap: 0.4rem; white-space: nowrap; }
-body[data-variant="disclose"] .verdict .half i { font-style: normal; }
-body[data-variant="disclose"] .verdict .lbl { font: 700 0.72rem "Cinzel", serif; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
-body[data-variant="disclose"] .verdict .pips { letter-spacing: 0.06em; }
-body[data-variant="disclose"] .verdict .half b { font-weight: 400; font-variant-numeric: lining-nums tabular-nums; }
-body[data-variant="disclose"] .verdict .cost { color: #ff7a63; } /* HP actually lost, in the same red as the float that just left the HP bar */
-body[data-variant="disclose"] .verdict .half b.tag { color: var(--glow); } /* negated: hollow / immune */
-body[data-variant="disclose"] .verdict details { margin-left: auto; }
-body[data-variant="disclose"] .verdict details[open] { flex: 1 0 100%; margin-left: 0; }
-body[data-variant="disclose"] .verdict summary { cursor: pointer; padding: 0.3rem 0.4rem; font-size: 0.85rem; color: var(--dim); touch-action: manipulation; }
-body[data-variant="disclose"] .verdict summary.why { color: var(--glow); } /* the question is the colour of the tag it answers */
-body[data-variant="disclose"] .verdict details p { margin: 0.1rem 0 0; font-size: 0.95rem; line-height: 1.3; }
-body[data-variant="disclose"] .verdict p.lesson { color: var(--glow); }
-body[data-variant="disclose"] .stage.fallen .verdict { filter: grayscale(1) brightness(0.55); }
-
-body[data-variant="disclose"] .log summary, body[data-variant="disclose"] .log .fizzle { display: flex; align-items: baseline; gap: 0.45rem; min-height: 1.8em; cursor: pointer; touch-action: manipulation; list-style: none; }
-body[data-variant="disclose"] .log summary::before, body[data-variant="disclose"] .log .fizzle::before { content: "▸"; flex: none; color: var(--dim); } /* flex drops the native marker */
-body[data-variant="disclose"] .log[open] > summary::before, body[data-variant="disclose"] .log details[open] > summary::before { content: "▾"; }
-body[data-variant="disclose"] .log .fizzle { cursor: default; }
-body[data-variant="disclose"] .log .fizzle::before { visibility: hidden; } /* nothing to open, but the rows stay aligned */
-body[data-variant="disclose"] .log > summary { padding: 0.2rem 0; }
-body[data-variant="disclose"] .log h2 { margin: 0; }
-body[data-variant="disclose"] .log .count { margin-left: auto; font-size: 0.8rem; color: var(--dim); }
-body[data-variant="disclose"] .log li { padding: 0.35rem 0.6rem; }
-body[data-variant="disclose"] .log q { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink); }
-body[data-variant="disclose"] .log details[open] q { white-space: normal; overflow: visible; }
-body[data-variant="disclose"] .log .tag { flex: none; color: var(--gold); font-variant-numeric: lining-nums tabular-nums; }
-body[data-variant="disclose"] .log .tag .icon { width: 0.85em; height: 0.85em; margin-right: 0.2em; color: var(--dim); }
-body[data-variant="disclose"] .log .scores { font-size: 0.9rem; color: var(--dim); }
-body[data-variant="disclose"] .log small.lesson { color: var(--glow); }
-
-@media (max-width: 899px) {
-  body[data-variant="disclose"] .verdict { min-height: 3.4em; } /* two rows reserved, so the strip never jumps mid-Reveal */
-  body[data-variant="disclose"] .verdict .off { flex: 1 0 100%; } /* one beat per row */
-}
-
-/* === variant: show === */
+/* Verdict strip: one Cast as two rows of pips, on the stage and shrunk in the Combat log */
 /* Verdict Pips: one Cast is two rows — sword and shield, five pips each, one number. */
-body[data-variant="show"] .result { min-height: 0; white-space: normal; }
-body[data-variant="show"] .strip { display: grid; gap: 0.3rem; min-height: 3.5rem; align-content: center; }
-body[data-variant="show"] .vrow { display: grid; grid-template-columns: 1.6rem 5em auto; gap: 0.15rem 0.7rem; align-items: center; }
-body[data-variant="show"] .vrow.flat { grid-template-columns: auto minmax(0, 1fr); }
-body[data-variant="show"] .vrow .icon { width: 1.4rem; height: 1.4rem; color: var(--dim); }
-body[data-variant="show"] .pips { font-size: 1.15rem; line-height: 1; letter-spacing: 0.18em; white-space: nowrap; }
-body[data-variant="show"] .pips i { font-style: normal; }
-body[data-variant="show"] .pips .on { color: var(--gold); text-shadow: 0 0 10px #d9c48a66; }
-body[data-variant="show"] .pips .off { color: var(--line); }
-body[data-variant="show"] .vrow.struck .pips { text-decoration: line-through; text-decoration-color: var(--blood); text-decoration-thickness: 2px; }
-body[data-variant="show"] .vrow.struck .pips .on { color: var(--dim); text-shadow: none; }
-body[data-variant="show"] .strip.kill .pips .on { text-shadow: 0 0 18px var(--gold); }
-body[data-variant="show"] .hint { grid-column: 2 / -1; font-size: 0.9rem; line-height: 1.25; color: var(--dim); }
-body[data-variant="show"] .chip { justify-self: start; font: 700 0.8rem "Cinzel", serif; letter-spacing: 0.12em; text-transform: uppercase; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
-body[data-variant="show"] .chip.hit { font-size: 1.05rem; color: var(--gold); }
-body[data-variant="show"] .chip.hurt { font-size: 1.05rem; color: #ff7a63; }
-body[data-variant="show"] .chip.tag, body[data-variant="show"] .chip.good { padding: 0.05rem 0.6rem; border: 1px solid currentColor; border-radius: 1rem; }
-body[data-variant="show"] .chip.tag { color: var(--blood); }
-body[data-variant="show"] .chip.good { color: var(--glow); }
+.result { min-height: 0; white-space: normal; }
+.strip { display: grid; gap: 0.3rem; min-height: 3.5rem; align-content: center; }
+.vrow { display: grid; grid-template-columns: 1.6rem 5em auto; gap: 0.15rem 0.7rem; align-items: center; }
+.vrow.flat { grid-template-columns: auto minmax(0, 1fr); }
+.vrow .icon { width: 1.4rem; height: 1.4rem; color: var(--dim); }
+.pips { font-size: 1.15rem; line-height: 1; letter-spacing: 0.18em; white-space: nowrap; }
+.pips i { font-style: normal; }
+.pips .on { color: var(--gold); text-shadow: 0 0 10px #d9c48a66; }
+.pips .off { color: var(--line); }
+.vrow.struck .pips { text-decoration: line-through; text-decoration-color: var(--blood); text-decoration-thickness: 2px; }
+.vrow.struck .pips .on { color: var(--dim); text-shadow: none; }
+.strip.kill .pips .on { text-shadow: 0 0 18px var(--gold); }
+.hint { grid-column: 2 / -1; font-size: 0.9rem; line-height: 1.25; color: var(--dim); }
+.chip { justify-self: start; font: 700 0.8rem "Cinzel", serif; letter-spacing: 0.12em; text-transform: uppercase; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.chip.hit { font-size: 1.05rem; color: var(--gold); }
+.chip.hurt { font-size: 1.05rem; color: #ff7a63; }
+.chip.tag, .chip.good { padding: 0.05rem 0.6rem; border: 1px solid currentColor; border-radius: 1rem; }
+.chip.tag { color: var(--blood); }
+.chip.good { color: var(--glow); }
 /* Turn 0: the same two rows, empty and named, so the mapping is learnt before the first Cast */
-body[data-variant="show"] .strip.legend { opacity: 0.4; }
-body[data-variant="show"] .legend small { font: 700 0.7rem "Cinzel", serif; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
+.strip.legend { opacity: 0.4; }
+.legend small { font: 700 0.7rem "Cinzel", serif; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
 /* Staged: each row lands on its own Reveal beat, so the text never races the animation */
-body[data-variant="show"] .staged .vrow { opacity: 0; }
-body[data-variant="show"] .staged .vrow.in { opacity: 1; animation: show-row-in 0.35s ease-out; }
-@keyframes show-row-in { from { opacity: 0; transform: translateX(-0.6rem); } }
+.staged .vrow { opacity: 0; }
+.staged .vrow.in { opacity: 1; animation: row-in 0.35s ease-out; }
+@keyframes row-in { from { opacity: 0; transform: translateX(-0.6rem); } }
 /* Ghost chunk: the lost HP lingers half a second behind the fill */
-body[data-variant="show"] .hp-track { position: relative; }
-body[data-variant="show"] .hp-fill { position: relative; }
-body[data-variant="show"] .hp-ghost { position: absolute; left: 0; top: 0; height: 100%; background: #ff7a6366; transition: width 0.5s 0.5s ease-out; }
+.hp-track { position: relative; }
+.hp-fill { position: relative; }
+.hp-ghost { position: absolute; left: 0; top: 0; height: 100%; background: #ff7a6366; transition: width 0.5s 0.5s ease-out; }
 /* Combat log: the same two rows, shrunk. History, not a second result panel. */
-body[data-variant="show"] .log .verdict { grid-template-columns: 1.4rem minmax(0, 1fr); gap: 0.15rem 0.4rem; padding: 0.45rem 0 0.45rem 0.6rem; background: none; border-left: 2px solid var(--line); border-radius: 0; }
-body[data-variant="show"] .log .verdict b { font-size: 0.7rem; letter-spacing: 0; color: var(--dim); }
-body[data-variant="show"] .log .verdict q { grid-column: 2; font-size: 0.9rem; color: var(--dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-body[data-variant="show"] .log .mini { grid-column: 2; flex-wrap: wrap; justify-content: start; gap: 0.15rem 1.2rem; }
-body[data-variant="show"] .mini .vrow { grid-template-columns: 1rem auto auto; gap: 0.35rem; }
-body[data-variant="show"] .mini .icon { width: 0.9rem; height: 0.9rem; }
-body[data-variant="show"] .mini .pips { font-size: 0.8rem; letter-spacing: 0.1em; }
-body[data-variant="show"] .mini .chip { padding: 0; border: 0; font-size: 0.7rem; }
-
-/* === variant: moment === */
-/* The outcome is a beat over the stage, then it retires into the Combat log. */
-body[data-variant="moment"] .moment {
-  position: absolute; inset: 0 0 auto 0; z-index: 5;
-  display: grid; gap: 0.45rem; padding: 1rem 1.1rem;
-  max-height: 62vh; overflow: auto;
-  background: linear-gradient(#241d31, #1b1626);
-  border: 1px solid var(--gold); border-radius: 6px;
-  box-shadow: 0 12px 44px #000c, 0 0 30px #d9a05a33;
-  outline: 0; animation: moment-in 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
-}
-@keyframes moment-in { from { opacity: 0; transform: translateY(-0.9rem) scale(0.97); } }
-/* While the card is up it is the only thing to read: nothing behind it is left half-covered by its edge, and the
-   present comes back as the card retires. */
-body[data-variant="moment"] .stage > :not(.moment) { transition: opacity 0.22s; }
-body[data-variant="moment"] .stage:has(.moment) > :not(.moment) { opacity: 0.3; }
-body[data-variant="moment"] .moment.retire { animation: moment-retire 0.22s ease-in forwards; }
-@keyframes moment-retire { to { opacity: 0; transform: translateY(1.2rem) scale(0.94); } } /* toward the log: below on phone */
-body[data-variant="moment"] .moment h2 { font-size: clamp(1.4rem, 6vw, 2.1rem); line-height: 1.05; color: var(--gold); }
-body[data-variant="moment"] .moment .flavour { font-size: 1.05rem; color: var(--ink); }
-body[data-variant="moment"] .moment .score { display: grid; grid-template-columns: 5.4rem auto minmax(0, 1fr); gap: 0.6rem; align-items: baseline; }
-body[data-variant="moment"] .moment .label { font: 700 0.7rem "Cinzel", serif; letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); }
-body[data-variant="moment"] .moment .pips { letter-spacing: 0.2em; color: var(--gold); }
-body[data-variant="moment"] .moment .tag { text-align: right; font-size: 0.95rem; color: var(--dim); font-variant-numeric: lining-nums tabular-nums; }
-body[data-variant="moment"] .moment .hint { padding-left: 0.7rem; border-left: 2px solid var(--glow); font-size: 0.98rem; line-height: 1.3; color: var(--glow); }
-body[data-variant="moment"] .moment .end-line { margin: 0.3rem 0 0; font: 700 1.1rem "Cinzel", serif; color: var(--gold); }
-body[data-variant="moment"] .moment button { justify-self: start; }
-/* The affordance *is* the armed signal: it fades in exactly when the card will take a dismissal. */
-body[data-variant="moment"] .dismiss { justify-self: end; font: 700 0.68rem "Cinzel", serif; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); animation: moment-fade-in 0.3s var(--grace, 400ms) both; }
-@keyframes moment-fade-in { from { opacity: 0; } }
-
-/* Present tense gets the weight: one Attack sentence on screen, numbered. */
-body[data-variant="moment"] .attack { padding: 0.8rem 1rem; }
-body[data-variant="moment"] .attack > div { font-size: 1.1rem; }
-
-/* The log reads as history: dim, compact, hairlines, no gold accent, no lesson — one click re-opens the card instead. */
-body[data-variant="moment"] .log { font-size: 0.85rem; color: var(--dim); }
-body[data-variant="moment"] .log ol { gap: 0; }
-body[data-variant="moment"] .log li { padding: 0.45rem 0; background: none; border: 0; border-top: 1px solid #6d648044; border-radius: 0; }
-body[data-variant="moment"] .log button { all: unset; display: grid; gap: 0.1rem; width: 100%; cursor: pointer; overflow-wrap: anywhere; }
-body[data-variant="moment"] .log button:hover, body[data-variant="moment"] .log button:focus-visible { color: var(--ink); }
-body[data-variant="moment"] .log .meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.1rem 0.5rem; font-variant-numeric: lining-nums tabular-nums; }
-body[data-variant="moment"] .log b { font-size: 0.68rem; color: var(--dim); }
-body[data-variant="moment"] .log .tag { color: var(--gold); opacity: 0.75; }
-body[data-variant="moment"] .log q { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: #bdb5cc99; }
-body[data-variant="moment"] .log li.fresh { animation: moment-fresh 1.2s ease-out; }
-@keyframes moment-fresh { from { background: #d9c48a26; } }
-@media (min-width: 900px) {
-  body[data-variant="moment"] .moment.retire { animation-name: moment-retire-right; }
-  @keyframes moment-retire-right { to { opacity: 0; transform: translate(4rem, -0.6rem) scale(0.92); } }
-}
-@media (prefers-reduced-motion: reduce) {
-  body[data-variant="moment"] .moment, body[data-variant="moment"] .moment.retire, body[data-variant="moment"] .log li.fresh { animation-duration: 0.01ms; }
-}
+.log .verdict { grid-template-columns: 1.4rem minmax(0, 1fr); gap: 0.15rem 0.4rem; padding: 0.45rem 0 0.45rem 0.6rem; background: none; border-left: 2px solid var(--line); border-radius: 0; }
+.log .verdict b { font-size: 0.7rem; letter-spacing: 0; color: var(--dim); }
+.log .verdict q { grid-column: 2; font-size: 0.9rem; color: var(--dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.log .mini { grid-column: 2; flex-wrap: wrap; justify-content: start; gap: 0.15rem 1.2rem; }
+.mini .vrow { grid-template-columns: 1rem auto auto; gap: 0.35rem; }
+.mini .icon { width: 0.9rem; height: 0.9rem; }
+.mini .pips { font-size: 0.8rem; letter-spacing: 0.1em; }
+.mini .chip { padding: 0; border: 0; font-size: 0.7rem; }

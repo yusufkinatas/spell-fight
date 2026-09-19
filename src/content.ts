@@ -2,10 +2,10 @@
 // DRAFT — edit freely. No logic lives here; the rules are in game.ts.
 
 // `instantKill`: offence 5 kills this enemy outright, before its attack lands. `portrait` names a glyph in icons.ts, never judged. `music` names a track in audio.ts; both boss Phases share one so it plays on through the Phase change.
-// `immunity`: shown on the enemy card as "Immune to <to>." A spell that mainly relies on <to> does 0 damage and shows `line`.
+// `immunity`: shown on the enemy card as "Immune to <to>." A spell that mainly relies on <to> does 0 damage.
 import type { Slot } from "./audio.ts";
 
-export type Enemy = { portrait: string; music: Slot; name: string; description: string; hp: number; power: number; instantKill: boolean; attacks: string[]; immunity?: { to: string; line: string } };
+export type Enemy = { portrait: string; music: Slot; name: string; description: string; hp: number; power: number; instantKill: boolean; attacks: string[]; immunity?: { to: string } };
 
 // `name` and `description` are shown to the player and sent to the judge unchanged.
 export const ENEMIES: Enemy[] = [
@@ -59,7 +59,7 @@ export const ENEMIES: Enemy[] = [
     hp: 12,
     power: 5,
     instantKill: true,
-    immunity: { to: "fire and heat", line: "The flames pass through it harmlessly." },
+    immunity: { to: "fire and heat" },
     attacks: [
       "The wraith breathes a roaring jet of flame straight at you.",
       "The wraith sinks into the floor and the stones under your feet glow red hot.",
@@ -107,40 +107,14 @@ export const WORDS = [
   "hammer", "bell", "dream", "sleep", "memory", "silence", "echo", "hunger", "time", "void",
 ];
 
-export const OFFENCE_LINES = [
-  "Your spell does nothing to the enemy.",
-  "A feeble strike. The enemy barely notices.",
-  "A glancing hit. The enemy is scratched.",
-  "A solid hit. The enemy is hurt.",
-  "A heavy blow. The enemy staggers.",
-  "A devastating strike. The enemy is torn apart.",
-];
-
-export const DEFENCE_LINES = [
-  "You do nothing to protect yourself. The attack lands in full.",
-  "Your ward barely slows the attack.",
-  "Your ward takes the edge off, but most of the attack gets through.",
-  "Your ward holds against most of the attack.",
-  "Your ward turns the attack aside. Only a graze reaches you.",
-  "The attack is stopped completely.",
-];
-
 // The one-line premise on the title screen.
 export const PREMISE_LINE = "Six words in your hand, a monster at your throat. Write the spell that saves you.";
 
-export const INSTANT_KILL_LINE = "A perfect spell. The enemy is destroyed before it can strike.";
-export const KILL_LINE = "The enemy falls before its attack lands.";
 // Shown when a boss phase falls and the next entry has the same name.
 export const BARRIER_BREAKS_LINE = "The barrier shatters. The boss stands exposed!";
 export const WIN_LINE = "The last enemy falls. You win!";
 export const LOSE_LINE = "You have fallen. The run starts again from the first enemy.";
 
-export const HOLLOW_LINE = "Your spell names an ending but no means, so nothing happens.";
-// Why a judged Offence was negated to 0, shown in the result and the log so a strong-sounding 0 is never a mystery.
-export const HOLLOW_REASON = "Negated: the spell only says what happens to the enemy, not what makes it happen. Name the force that does the harm.";
-export const immuneReason = (to: string) => `Negated: the spell relies on ${to}, and this enemy is immune to it.`;
-
-export const FIZZLE_LINE = "The spell fizzles.";
 // Keys match the judge's forbidden options (src/judge.ts); the test checks they stay in sync.
 export const FORBIDDEN_LABELS: Record<string, string> = {
   swearing: "swearing or slurs",
@@ -149,27 +123,6 @@ export const FORBIDDEN_LABELS: Record<string, string> = {
   judge: "addressing the judge",
 };
 
-// Short copy for the "subtract" variant, where a Turn is stated once, as one Combat log row: each reason is a single
-// line beside the scores, and the end heading carries what the row no longer says.
-export const HOLLOW_REASON_SHORT = "Hollow: name the force that does the harm, not just the result.";
-export const immuneReasonShort = (to: string) => `Immune: your spell relied on ${to}.`;
-export const fizzleReasonShort = (label: string) => `Fizzled: ${label} — nothing happens, write another.`;
-export const INSTANT_KILL_LINE_SHORT = "Destroyed before it could strike.";
-export const BARRIER_BREAKS_LINE_SHORT = "The barrier shatters.";
-export const LOSE_LINE_SHORT = "You have fallen.";
-
-// Variant "moment": the outcome shows once, as a card, so its copy is short enough to take in at a glance.
-// The verdict in two or three words. Index = effective Offence 0..5.
-export const MOMENT_OFFENCE_TITLES = ["No harm", "A feeble strike", "A glancing hit", "A solid hit", "A heavy blow", "A devastating strike"];
-// The actionable half of the *_REASON lines; the long ones stay for the other variants.
-export const MOMENT_HOLLOW_HINT = "Say what does the harm, not just that it happens.";
-export const momentImmuneHint = (to: string) => `This one shrugs off ${to}. Name another force.`;
-export const MOMENT_FIZZLE_HINT = "Nothing was cast, no HP changed. Write it again.";
-
-// variant disclose: the primer in the verdict strip before the first Cast of a Run, and the Fizzle's reassurance.
-export const DISCLOSE_FIRST_HINT = "Answer the Attack, and name the force that does the harm.";
-export const DISCLOSE_FIZZLE_AGAIN = "Cast again — nothing was lost.";
-
-// variant "show": the whole lesson in one line under the struck pips; the chip beside them already says HOLLOW or IMMUNE.
+// Why a judged Offence was negated: the whole lesson in one line under the struck pips. The chip beside them already says HOLLOW or IMMUNE.
 export const HOLLOW_HINT = "Name the force that does the harm.";
 export const immuneHint = (to: string) => `Your spell relied on ${to}.`;
