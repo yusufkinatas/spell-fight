@@ -1,4 +1,4 @@
-# Spellcrafting duel game (working title: none yet)
+# Spell Fight (originally an untitled spellcrafting duel game)
 
 **SUPERSEDED** — all open questions below were settled; specs now live as GitHub issues, vocabulary in `CONTEXT.md`.
 

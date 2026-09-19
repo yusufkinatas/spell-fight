@@ -4,7 +4,7 @@
 import type { Cue } from "./game.ts";
 
 // Settings persist in localStorage, wrapped so a blocked storage never breaks the game.
-const STORAGE_KEY = "spellcrafting-duel.audio";
+const STORAGE_KEY = "spell-fight.audio";
 export const settings = { effects: true, music: true };
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}"));

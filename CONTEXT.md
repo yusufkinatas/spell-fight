@@ -1,4 +1,4 @@
-# Spellcrafting Duel
+# Spell Fight
 
 A single-player game where the player defeats hand-authored enemies by typing free-text spells that an AI judge scores.
 

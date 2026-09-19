@@ -154,7 +154,7 @@ function renderTitle() {
       "div",
       "title",
       el("div", "portrait", icon("dragon-head")),
-      el("h1", "", "Spellcrafting Duel"),
+      el("h1", "", "Spell Fight"),
       el("p", "premise", PREMISE_LINE),
       begin,
       el(
