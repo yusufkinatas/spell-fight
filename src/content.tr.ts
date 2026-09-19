@@ -1,0 +1,126 @@
+// Türkçe: every line the player reads, the twin of EN in content.ts. DRAFT — edit freely.
+// `enemies` re-labels ENEMIES by index, attack for attack: the judge still reads the English entry, only the Spell is Turkish.
+import type { Text } from "./content.ts";
+
+export const TR: Text = {
+  code: "tr",
+  langName: "Türkçe",
+  title: "Büyü Savaşı",
+  // Hand matching (game.ts) is prefix-based, so a tile must survive its suffixes: "ışık" lights up for "ışığın", "yanmak" for "yanar".
+  // Verbs are infinitives with a consonant-final stem ("bağlamak" would miss "bağlıyor"). No noun may end in -mak/-mek ("ırmak"),
+  // drop a vowel ("nehir" -> "nehri"), or be the start of another tile ("kan"/"kanat"). The test checks stem length and tile prefixes.
+  words: [
+    "dere", "diken", "ayna", "kül", "fısıltı", "demir", "alev", "buz", "fırtına", "taş",
+    "gölge", "ışık", "rüzgar", "kök", "tuz", "kemik", "kan", "dolunay", "güneş", "yıldız",
+    "sis", "köz", "cam", "gümüş", "bakır", "pas", "toz", "kum", "dalga", "gelgit",
+    "yağmur", "şimşek", "kıvılcım", "duman", "sarmaşık", "yosun", "ipek", "tüy", "pençe", "diş",
+    "yılan", "kuzgun", "kurt", "güve", "örümcek", "düğüm", "kırmak", "boğmak", "yanmak", "dondurmak",
+    "solmak", "çiçek", "şarkı", "dokumak", "kalkan", "duvar", "kafes", "zincir", "kılıç", "mızrak",
+    "çekiç", "çan", "rüya", "uyku", "hatıra", "sessizlik", "çığlık", "açlık", "zaman", "boşluk",
+  ],
+  enemies: [
+    {
+      name: "Kil Golemi",
+      description: "Islak dere kilinden bir dev; yavaş ve ağır.",
+      attacks: [
+        "Golem kocaman yumruğunu tepene indiriyor.",
+        "Golem sertleşmiş kilden bir kayayı göğsüne fırlatıyor.",
+        "Golem ayağını yere vuruyor; bir çamur dalgası bacaklarına doğru akıyor.",
+      ],
+      immunity: undefined,
+    },
+    {
+      name: "İskelet Şövalye",
+      description: "Paslı zırhın içinde ölü bir şövalyenin kemikleri; yorulmak bilmez, kılıcı çok hızlıdır.",
+      attacks: [
+        "Şövalye uzun kılıcını dosdoğru boğazına saplıyor.",
+        "Şövalye demir kalkanının ardında üstüne koşuyor; seni duvara yapıştırıp ezecek.",
+        "Şövalye alçaktan vuracakmış gibi yapıyor, sonra kılıcını göremediğin taraftan boynuna savuruyor.",
+      ],
+      immunity: undefined,
+    },
+    {
+      name: "Bataklık Cadısı",
+      description: "Kara bataklığın buruşuk kocakarısı; zehirler kaynatır, bataklığın sürünen yaratıklarına hükmeder.",
+      attacks: [
+        "Cadı, bütün odayı dolduran zehirli bir sis üflüyor.",
+        "Cadı bir lanet fısıldıyor; kendi gölgen ayağa kalkıp boğazına sarılıyor.",
+        "Cadının yenlerinden ısıran bataklık sinekleri sürü halinde boşanıp her yanını kaplıyor.",
+      ],
+      immunity: undefined,
+    },
+    {
+      name: "Ateş Hortlağı",
+      description: "Canlı alevden ve dumandan bir hayalet; katı bir bedeni yok, yerin üstünde süzülüyor.",
+      attacks: [
+        "Hortlak üstüne kükreyen bir alev püskürtüyor.",
+        "Hortlak zemine gömülüyor; ayaklarının altındaki taşlar kıpkırmızı kızarıyor.",
+        "Hortlak, boğucu duman ve közlerden bir kasırga olup etrafına dolanıyor.",
+      ],
+      immunity: "ateşe ve sıcağa", // dative: both immuneBadge and immuneHint take it as is
+    },
+    {
+      name: "Kadim Ejderha",
+      description: "Parıldayan büyülü bir güç kubbesinin içinde kıvrılmış, kocaman yaşlı bir ejderha. Kubbe ayakta kaldıkça ejderhaya hiçbir şey dokunamaz; her büyü kubbenin kendisine çarpar.",
+      attacks: [
+        "Ejderha kubbesinin içinden kükrüyor; tavandan üstüne ağır taşlar yağıyor.",
+        "Ejderhanın kuyruğu kubbeden dışarı savrulup yeri süpürerek bacaklarına geliyor.",
+        "Kubbe parlıyor ve çatırdayan bir güç halkası sana doğru yayılıyor.",
+      ],
+      immunity: undefined,
+    },
+    {
+      name: "Kadim Ejderha",
+      description: "Kalın pullu, pençeli, deri kanatlı kocaman yaşlı bir ejderha; kubbesi yıkıldı, öfkeden kudurmuş, ateş püskürüyor.",
+      attacks: [
+        "Ejderha bütün salonu kaplayan akkor bir ateş seli püskürtüyor.",
+        "Ejderha havaya sıçrıyor ve iki pençesi açık üstüne dalıyor.",
+        "Ejderha kanat çırpıyor; bir bora seni sivri kayalı duvara savururken çenesi sana doğru kapanıyor.",
+      ],
+      immunity: undefined,
+    },
+  ],
+  premise: "Elinde altı kelime, boğazında bir canavar. Seni kurtaracak büyüyü yaz.",
+  begin: "Başla",
+  credits: ["İkonlar: Lorc, Delapouite ve Cathelineau (", ", ", "). Müzik: Kevin MacLeod (", ", ", ") ve Juhani Junkala (CC0). Oyunu geliştirmek için büyüler ve ziyaretler anonim olarak kaydedilir."],
+  barrierBreaks: "Bariyer paramparça oldu. Ejderha artık korumasız!",
+  win: "Son düşman da yere serildi. Kazandın!",
+  lose: "Yenildin. Macera ilk düşmandan yeniden başlıyor.",
+  falls: (name) => `${name} yere serildi.`,
+  forbidden: { swearing: "küfür veya hakaret", sexual: "cinsel içerik", religious: "dinî iddia veya hakaret", judge: "hakeme seslenmek" },
+  hollowHint: "Düşmana neyin zarar verdiğini söyle.",
+  // "güvendi", not "dayandı": with a dative, "dayandı" also reads as "withstood".
+  immuneHint: (to) => `Büyün ${to} güvendi.`,
+  immuneBadge: (to) => `${to[0].toLocaleUpperCase("tr")}${to.slice(1)} bağışık`,
+  miss: "ıska",
+  perfect: "kusursuz",
+  immune: "Bağışık",
+  hollow: "Boş",
+  kill: "Ölümcül",
+  blocked: "Engellendi",
+  fizzle: "Söndü",
+  fizzled: (why) => `Söndü: ${why}`,
+  offence: "Saldırı",
+  defence: "Savunma",
+  outOf5: (label, score) => `${label}: 5 üzerinden ${score}`,
+  logTitle: "Savaş günlüğü",
+  logEmpty: "Henüz büyü yapılmadı.",
+  logBarrier: "bariyer kırılıyor",
+  enemyHp: "Düşmanın canı",
+  yourHp: "Senin canın",
+  restart: "Yeniden başla",
+  playAgain: "Tekrar oyna",
+  fightOn: "Savaşa devam",
+  nextEnemy: "Sıradaki düşman",
+  placeholder: "Büyünü yaz…",
+  handWords: (used, min) => `${used}/${min} eldeki kelime`,
+  wordCount: (count, max) => `${count}/${max} kelime`,
+  cast: "Büyü yap",
+  judging: "Hakem tartıyor…",
+  judgeSilent: "Hakem sessiz. Tekrar dene",
+  incoming: "Düşman hamlesi",
+  music: "Müzik",
+  effects: "Ses efektleri",
+  on: "açık",
+  off: "kapalı",
+};

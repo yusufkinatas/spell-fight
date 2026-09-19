@@ -13,21 +13,29 @@ export const TUNING = {
   defenceLevels: 5, // damage taken = attack power x (5 - defence) / 5, rounded
 };
 
-// ponytail: crude stem (drop a final "e" so flame matches flaming); "ash" also matches "ashamed". Real stemmer if players notice.
-const stem = (word: string) => (word.length > 3 ? word.replace(/e$/, "") : word);
+export type Lang = "en" | "tr";
 
-export function usedHandWords(spell: string, hand: string[]): string[] {
-  const tokens = spell.toLowerCase().match(/[a-z]+/g) ?? [];
-  return hand.filter((word) => tokens.some((t) => t.startsWith(stem(word))));
+// ponytail: crude stems, a token matches when it starts with one. "ash" also matches "ashamed". Real stemmer if players notice.
+// en: drop a final "e" so flame matches flaming.
+// tr: suffixes only ever follow, so the word itself works, plus its softened final consonant (ışık -> ışığın, kurt -> kurdu);
+//     an infinitive matches on its verb stem (yanmak -> yanar). content.tr.ts keeps the pool inside these rules.
+const SOFTENED: Record<string, string> = { p: "b", ç: "c", t: "d", k: "ğ" };
+export const stems = (word: string, lang: Lang): string[] =>
+  lang === "en" ? [word.length > 3 ? word.replace(/e$/, "") : word] : /m[ae]k$/.test(word) ? [word.slice(0, -3)] : [word, word.replace(/[pçtk]$/, (c) => SOFTENED[c])];
+
+export function usedHandWords(spell: string, hand: string[], lang: Lang = "en"): string[] {
+  // Locale lowercasing so İ/I land on i/ı in Turkish; the circumflex is optional in Turkish spelling (rüzgâr = rüzgar), so it goes.
+  const tokens = spell.toLocaleLowerCase(lang).normalize("NFD").replace(/̂/g, "").normalize("NFC").match(/\p{L}+/gu) ?? [];
+  return hand.filter((word) => tokens.some((t) => stems(word, lang).some((s) => t.startsWith(s))));
 }
 
 export const wordCount = (spell: string) => spell.trim().split(/\s+/).filter(Boolean).length;
 
-export const canCast = (spell: string, hand: string[]) =>
-  wordCount(spell) <= TUNING.maxSpellWords && usedHandWords(spell, hand).length >= TUNING.minHandWords;
+export const canCast = (spell: string, hand: string[], lang: Lang = "en") =>
+  wordCount(spell) <= TUNING.maxSpellWords && usedHandWords(spell, hand, lang).length >= TUNING.minHandWords;
 
-export function drawHand(random = Math.random): string[] {
-  const pool = [...WORDS];
+export function drawHand(words = WORDS, random = Math.random): string[] {
+  const pool = [...words];
   return Array.from({ length: TUNING.handSize }, () => pool.splice(Math.floor(random() * pool.length), 1)[0]);
 }
 

@@ -1,7 +1,8 @@
 // Pure game logic checks. Run: npm test
 import assert from "node:assert/strict";
-import { ENEMIES, FORBIDDEN_LABELS, WORDS } from "../src/content.ts";
-import { TUNING, applyCast, canCast, damageTaken, drawHand, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, revealCues, usedHandWords, type LogEntry } from "../src/game.ts";
+import { EN, ENEMIES, WORDS } from "../src/content.ts";
+import { TR } from "../src/content.tr.ts";
+import { TUNING, applyCast, canCast, damageTaken, drawHand, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, revealCues, stems, usedHandWords, type LogEntry } from "../src/game.ts";
 import { FORBIDDEN_OPTIONS } from "../src/judge.ts";
 
 const hand = ["river", "thorn", "flame", "ash", "whisper", "iron"];
@@ -67,8 +68,28 @@ assert.ok(ENEMIES.every((e) => e.attacks.length === 3));
 assert.ok(ENEMIES.every((e, i) => i === 0 || e.power >= ENEMIES[i - 1].power));
 assert.ok(WORDS.length >= 65 && WORDS.length <= 75);
 
-// Every forbidden category the judge can return has a player-facing label.
-assert.deepEqual(Object.keys(FORBIDDEN_OPTIONS).sort(), ["none", ...Object.keys(FORBIDDEN_LABELS)].sort());
+// Every forbidden category the judge can return has a player-facing label, in both languages.
+for (const text of [EN, TR]) assert.deepEqual(Object.keys(FORBIDDEN_OPTIONS).sort(), ["none", ...Object.keys(text.forbidden)].sort());
+
+// Turkish re-labels the English content index for index: same enemies, same attacks, the same one with an immunity.
+assert.deepEqual(Object.keys(TR).sort(), Object.keys(EN).sort());
+assert.deepEqual(TR.enemies.map((e) => [e.attacks.length, !!e.immunity]), EN.enemies.map((e) => [e.attacks.length, !!e.immunity]));
+assert.equal(TR.enemies.at(-1)!.name, TR.enemies.at(-2)!.name, "both boss Phases share a name in Turkish too");
+assert.equal(new Set(TR.words).size, TR.words.length);
+assert.ok(TR.words.length >= 65 && TR.words.length <= 75);
+assert.equal(TR.immuneBadge("ateşe ve sıcağa"), "Ateşe ve sıcağa bağışık");
+
+// Turkish Hand words: suffixes, consonant softening, verb stems, İ/I casing and the optional circumflex all count.
+const el = ["ışık", "kurt", "yanmak", "rüzgar", "kılıç", "diken"];
+assert.deepEqual(usedHandWords("IŞIĞIN kurdu yanıyor, rüzgâr kılıcımı DİKENLERE savurur", el, "tr"), el);
+assert.deepEqual(usedHandWords("balık ve bulut", el, "tr"), [], "no match inside a word");
+assert.equal(canCast("Dikenler ışığı sarar, kurtlar ulur", el, "tr"), true);
+// The pool stays inside what prefix matching can do: no stem so short it lights up by accident (the -mak noun "ırmak" would
+// stem to "ır"), and no tile that lights up when the player writes another tile ("kan" inside "kanat").
+for (const word of TR.words) {
+  assert.ok(stems(word, "tr").every((s) => s.length >= 3), `${word}: stem too short`);
+  assert.deepEqual(usedHandWords(word, TR.words, "tr"), [word], `${word} lights up another tile`);
+}
 
 // Combat log: newest first; a Turn records effective scores and HP deltas, a Fizzle takes no turn number.
 {
