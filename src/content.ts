@@ -117,6 +117,9 @@ export const DEFENCE_LINES = [
   "The attack is stopped completely.",
 ];
 
+// The one-line premise on the title screen.
+export const PREMISE_LINE = "Six words in your hand, a monster at your throat. Write the spell that saves you.";
+
 export const INSTANT_KILL_LINE = "A perfect spell. The enemy is destroyed before it can strike.";
 export const KILL_LINE = "The enemy falls before its attack lands.";
 // Shown when a boss phase falls and the next entry has the same name.

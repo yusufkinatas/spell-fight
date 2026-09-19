@@ -1,9 +1,10 @@
-import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, WIN_LINE } from "./content.ts";
+import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LABELS, INSTANT_KILL_LINE, KILL_LINE, LOSE_LINE, OFFENCE_LINES, PREMISE_LINE, WIN_LINE } from "./content.ts";
 import { TUNING, applyCast, canCast, drawHand, isWon, newRun, nextEnemy, offenceOf, usedHandWords, wordCount } from "./game.ts";
 import { icon } from "./icons.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
+let started = false; // the title screen shows until Begin; Restart and Play again never come back to it
 let run = newRun();
 let turn = 0;
 let hand = drawHand();
@@ -25,7 +26,49 @@ function hpBar(label: string, hp: number, max: number): HTMLElement {
   return row;
 }
 
+function link(href: string, text: string): HTMLAnchorElement {
+  const a = el("a", "", text);
+  a.href = href;
+  a.target = "_blank";
+  a.rel = "noopener";
+  return a;
+}
+
+function renderTitle() {
+  const begin = el("button", "begin", "Begin");
+  // A real button press: later the same gesture unlocks audio.
+  begin.onclick = () => {
+    started = true;
+    render();
+  };
+  app.replaceChildren(
+    el(
+      "div",
+      "title",
+      el("div", "portrait", icon("dragon-head")),
+      el("h1", "", "Spellcrafting Duel"),
+      el("p", "premise", PREMISE_LINE),
+      begin,
+      el(
+        "p",
+        "credits",
+        "Icons by Lorc, Delapouite and Cathelineau (",
+        link("https://game-icons.net", "game-icons.net"),
+        ", ",
+        link("https://creativecommons.org/licenses/by/3.0/", "CC BY 3.0"),
+        "). Music by Kevin MacLeod (",
+        link("https://incompetech.com", "incompetech.com"),
+        ", ",
+        link("https://creativecommons.org/licenses/by/4.0/", "CC BY 4.0 — creativecommons.org/licenses/by/4.0"),
+        ") and Juhani Junkala (CC0).",
+      ),
+    ),
+  );
+  begin.focus();
+}
+
 function render() {
+  if (!started) return renderTitle();
   const enemy = ENEMIES[run.enemy];
   const phaseChange = ENEMIES[run.enemy + 1]?.name === enemy.name; // boss phase 1: the next entry is the same boss
   const stage = el(
