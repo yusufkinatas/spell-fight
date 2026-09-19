@@ -35,6 +35,8 @@ assert.deepEqual(applyCast({ enemy: 0, enemyHp: 14, playerHp: 20 }, { power: 5, 
 
 // Immunity: a spell relying on it does 0 damage (no instant kill either), and the enemy still attacks.
 assert.deepEqual(applyCast({ enemy: 3, enemyHp: 12, playerHp: 20 }, golem, { offence: 5, defence: 0, immune: true }), { enemy: 3, enemyHp: 12, playerHp: 17 });
+// Hollow: the same negation, on any enemy.
+assert.deepEqual(applyCast({ enemy: 3, enemyHp: 12, playerHp: 20 }, golem, { offence: 5, defence: 0, hollow: true }), { enemy: 3, enemyHp: 12, playerHp: 17 });
 assert.deepEqual(applyCast({ enemy: 3, enemyHp: 12, playerHp: 20 }, golem, { offence: 4, defence: 5, immune: false }), { enemy: 3, enemyHp: 8, playerHp: 20 });
 
 // The run: 20 HP at enemy 1, player HP carries over with no healing, the win is the last enemy's death.
@@ -75,12 +77,12 @@ assert.deepEqual(Object.keys(FORBIDDEN_OPTIONS).sort(), ["none", ...Object.keys(
   let log: LogEntry[] = [];
   let verdict = { offence: 4, defence: 1, immune: false };
   log = logTurn(log, "frost spell", "an attack", wraith, verdict, before, applyCast(before, wraith, verdict));
-  assert.deepEqual(log, [{ kind: "turn", turn: 1, spell: "frost spell", attack: "an attack", offence: 4, defence: 1, enemyHpLost: 4, playerHpLost: 4, immune: false, instantKill: false }]);
+  assert.deepEqual(log, [{ kind: "turn", turn: 1, spell: "frost spell", attack: "an attack", offence: 4, defence: 1, enemyHpLost: 4, playerHpLost: 4, immune: false, hollow: false, instantKill: false, reason: "" }]);
   log = logFizzle(log, "rude spell", "swearing or slurs");
   assert.deepEqual(log[0], { kind: "fizzle", spell: "rude spell", forbidden: "swearing or slurs" });
   verdict = { offence: 5, defence: 5, immune: true };
   log = logTurn(log, "fire spell", "an attack", wraith, verdict, before, applyCast(before, wraith, verdict));
-  assert.deepEqual(log[0], { kind: "turn", turn: 2, spell: "fire spell", attack: "an attack", offence: 0, defence: 5, enemyHpLost: 0, playerHpLost: 0, immune: true, instantKill: false }, "immune logs offence 0; the fizzle did not advance the turn number");
+  assert.deepEqual(log[0], { kind: "turn", turn: 2, spell: "fire spell", attack: "an attack", offence: 0, defence: 5, enemyHpLost: 0, playerHpLost: 0, immune: true, hollow: false, instantKill: false, reason: "" }, "immune logs offence 0; the fizzle did not advance the turn number");
   assert.equal(log.length, 3);
   assert.deepEqual(logNextEnemy(log, before), [], "next Battle clears the log");
   const kept = logNextEnemy(log, { enemy: ENEMIES.length - 2, enemyHp: 0, playerHp: 9 });
@@ -90,12 +92,13 @@ assert.deepEqual(Object.keys(FORBIDDEN_OPTIONS).sort(), ["none", ...Object.keys(
 
 // Reveal cues: derived purely from the Verdict, the enemy and the before/after Run.
 {
-  const kinds = (verdict: { forbidden?: string; offence: number; defence: number; immune?: boolean }, enemy: (typeof ENEMIES)[number], before: { enemy: number; enemyHp: number; playerHp: number }) =>
+  const kinds = (verdict: { forbidden?: string; offence: number; defence: number; immune?: boolean; hollow?: boolean }, enemy: (typeof ENEMIES)[number], before: { enemy: number; enemyHp: number; playerHp: number }) =>
     revealCues(verdict, enemy, before, applyCast(before, enemy, verdict)).map((c) => c.kind);
   const golemRun = { enemy: 0, enemyHp: 8, playerHp: 20 };
   assert.deepEqual(kinds({ offence: 5, defence: 0 }, ENEMIES[0], golemRun), ["cast", "instant-kill", "enemy-death"], "Instant kill: no attack or hurt cues");
   assert.deepEqual(kinds({ offence: 3, defence: 0 }, ENEMIES[0], { ...golemRun, enemyHp: 2 }), ["cast", "hit", "attack-lands", "hurt", "enemy-death"], "a dying enemy still attacks");
   assert.deepEqual(kinds({ offence: 5, defence: 2, immune: true }, ENEMIES[3], { enemy: 3, enemyHp: 12, playerHp: 20 }), ["cast", "immune", "attack-lands", "hurt"], "immune instead of a hit");
+  assert.deepEqual(kinds({ offence: 5, defence: 2, hollow: true }, ENEMIES[3], { enemy: 3, enemyHp: 12, playerHp: 20 }), ["cast", "hollow", "attack-lands", "hurt"], "hollow instead of a hit, and no instant kill");
   assert.deepEqual(kinds({ offence: 2, defence: 4 }, ENEMIES[0], golemRun), ["cast", "hit", "attack-lands", "shield", "hurt"]);
   assert.deepEqual(kinds({ offence: 2, defence: 5 }, ENEMIES[0], golemRun), ["cast", "hit", "attack-lands", "shield"], "a full ward: shield, nothing to hurt");
   assert.deepEqual(kinds({ offence: 5, defence: 5 }, barrier, { enemy: ENEMIES.length - 2, enemyHp: 3, playerHp: 9 }), ["cast", "hit", "attack-lands", "shield", "barrier-shatter"], "Phase-1 death is a barrier-shatter, not an enemy-death");

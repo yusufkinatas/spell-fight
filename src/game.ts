@@ -48,11 +48,11 @@ export const isPhaseChange = (run: Run) => ENEMIES[run.enemy + 1]?.name === ENEM
 
 export const isWon = (run: Run) => run.enemyHp === 0 && run.enemy === ENEMIES.length - 1;
 
-// An immune enemy takes nothing from a spell that relies on its immunity, whatever the offence score was.
-export const offenceOf = (verdict: { offence: number; immune?: boolean }) => (verdict.immune ? 0 : verdict.offence);
+// An immune enemy takes nothing from a spell that relies on its immunity, and a hollow spell hurts nothing, whatever the offence score was.
+export const offenceOf = (verdict: { offence: number; immune?: boolean; hollow?: boolean }) => (verdict.immune || verdict.hollow ? 0 : verdict.offence);
 
 // Offence lands first, but only an instant kill stops the attack: a dying enemy still strikes (spec "Instant kill").
-export function applyCast(run: Run, enemy: Pick<Enemy, "power" | "instantKill">, verdict: { offence: number; defence: number; immune?: boolean }): Run {
+export function applyCast(run: Run, enemy: Pick<Enemy, "power" | "instantKill">, verdict: { offence: number; defence: number; immune?: boolean; hollow?: boolean }): Run {
   const offence = offenceOf(verdict);
   const kill = enemy.instantKill && offence === 5;
   const enemyHp = kill ? 0 : Math.max(0, run.enemyHp - damageDealt(offence));
@@ -62,15 +62,15 @@ export function applyCast(run: Run, enemy: Pick<Enemy, "power" | "instantKill">,
 
 // Combat log of the current Battle, newest entry first. Flavour lines are not stored.
 export type LogEntry =
-  | { kind: "turn"; turn: number; spell: string; attack: string; offence: number; defence: number; enemyHpLost: number; playerHpLost: number; immune: boolean; instantKill: boolean }
+  | { kind: "turn"; turn: number; spell: string; attack: string; offence: number; defence: number; enemyHpLost: number; playerHpLost: number; immune: boolean; hollow: boolean; instantKill: boolean; reason: string }
   | { kind: "fizzle"; spell: string; forbidden: string }
   | { kind: "phase" };
 
-// `offence` is the effective one: 0 when the enemy was immune.
-export function logTurn(log: LogEntry[], spell: string, attack: string, enemy: Pick<Enemy, "instantKill">, verdict: { offence: number; defence: number; immune?: boolean }, before: Run, after: Run): LogEntry[] {
+// `offence` is the effective one: 0 when negated. `reason` is the player-facing why, empty when nothing was negated.
+export function logTurn(log: LogEntry[], spell: string, attack: string, enemy: Pick<Enemy, "instantKill">, verdict: { offence: number; defence: number; immune?: boolean; hollow?: boolean }, before: Run, after: Run, reason = ""): LogEntry[] {
   const offence = offenceOf(verdict);
   const turn = log.filter((e) => e.kind === "turn").length + 1;
-  return [{ kind: "turn", turn, spell, attack, offence, defence: verdict.defence, enemyHpLost: before.enemyHp - after.enemyHp, playerHpLost: before.playerHp - after.playerHp, immune: !!verdict.immune, instantKill: enemy.instantKill && offence === 5 }, ...log];
+  return [{ kind: "turn", turn, spell, attack, offence, defence: verdict.defence, enemyHpLost: before.enemyHp - after.enemyHp, playerHpLost: before.playerHp - after.playerHp, immune: !!verdict.immune, hollow: !!verdict.hollow, instantKill: enemy.instantKill && offence === 5, reason }, ...log];
 }
 
 export const logFizzle = (log: LogEntry[], spell: string, forbidden: string): LogEntry[] => [{ kind: "fizzle", spell, forbidden }, ...log];
@@ -81,15 +81,15 @@ export const logNextEnemy = (log: LogEntry[], run: Run): LogEntry[] => (isPhaseC
 // Reveal cues: the ordered beats of one Verdict's playback. The DOM and audio layers only play them; they decide nothing.
 // `hit` intensity is the effective Offence 0-5, `hurt` intensity is the damage taken.
 export type Cue =
-  | { kind: "cast" | "fizzle" | "immune" | "instant-kill" | "enemy-death" | "barrier-shatter" | "attack-lands" | "shield" | "player-death" }
+  | { kind: "cast" | "fizzle" | "immune" | "hollow" | "instant-kill" | "enemy-death" | "barrier-shatter" | "attack-lands" | "shield" | "player-death" }
   | { kind: "hit"; intensity: number; damage: number }
   | { kind: "hurt"; intensity: number };
 
-export function revealCues(verdict: { forbidden?: string; offence: number; defence: number; immune?: boolean }, enemy: Pick<Enemy, "instantKill">, before: Run, after: Run): Cue[] {
+export function revealCues(verdict: { forbidden?: string; offence: number; defence: number; immune?: boolean; hollow?: boolean }, enemy: Pick<Enemy, "instantKill">, before: Run, after: Run): Cue[] {
   if (verdict.forbidden && verdict.forbidden !== "none") return [{ kind: "cast" }, { kind: "fizzle" }];
   const offence = offenceOf(verdict);
   const instant = enemy.instantKill && offence === 5;
-  const cues: Cue[] = [{ kind: "cast" }, verdict.immune ? { kind: "immune" } : instant ? { kind: "instant-kill" } : { kind: "hit", intensity: offence, damage: before.enemyHp - after.enemyHp }];
+  const cues: Cue[] = [{ kind: "cast" }, verdict.immune ? { kind: "immune" } : verdict.hollow ? { kind: "hollow" } : instant ? { kind: "instant-kill" } : { kind: "hit", intensity: offence, damage: before.enemyHp - after.enemyHp }];
   // Only an instant kill skips the Attack beat: a dying enemy still strikes, then falls.
   if (!instant) {
     cues.push({ kind: "attack-lands" });

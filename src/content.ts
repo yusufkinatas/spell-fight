@@ -135,6 +135,11 @@ export const BARRIER_BREAKS_LINE = "The barrier shatters. The boss stands expose
 export const WIN_LINE = "The last enemy falls. You win!";
 export const LOSE_LINE = "You have fallen. The run starts again from the first enemy.";
 
+export const HOLLOW_LINE = "Your spell names an ending but no means, so nothing happens.";
+// Why a judged Offence was negated to 0, shown in the result and the log so a strong-sounding 0 is never a mystery.
+export const HOLLOW_REASON = "Negated: the spell only says what happens to the enemy, not what makes it happen. Name the force that does the harm.";
+export const immuneReason = (to: string) => `Negated: the spell relies on ${to}, and this enemy is immune to it.`;
+
 export const FIZZLE_LINE = "The spell fizzles.";
 // Keys match the judge's forbidden options (src/judge.ts); the test checks they stay in sync.
 export const FORBIDDEN_LABELS: Record<string, string> = {

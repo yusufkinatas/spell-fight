@@ -118,6 +118,7 @@ export function effect(name: keyof typeof EFFECTS, intensity = 1) {
 export function playCue(cue: Cue) {
   if (cue.kind === "hit") effect("hit", cue.intensity / 5);
   else if (cue.kind === "hurt") effect("hurt", cue.intensity / 6);
+  else if (cue.kind === "hollow") effect("fizzle"); // the spell comes apart, like a Fizzle
   else if (cue.kind === "instant-kill") effect("instantKill");
   else if (cue.kind === "attack-lands") effect("attackLands");
   else if (cue.kind === "enemy-death") effect("enemyDeath");

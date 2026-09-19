@@ -9,7 +9,8 @@ export type Cast = {
 
 // `forbidden` is "none" or a key of FORBIDDEN_LABELS in content.ts; when it is not "none" the scores are ignored.
 // `immune`: the spell mainly relies on the enemy's immunity, so code forces offence to 0. Always false for enemies without one.
-export type Verdict = { forbidden: string; defence: number; offence: number; immune: boolean };
+// `hollow`: the spell only declares its result without saying how, so code forces offence to 0. `offence` stays the raw score, so the UI can say what was negated.
+export type Verdict = { forbidden: string; defence: number; offence: number; immune: boolean; hollow: boolean };
 
 // Jev judges every level on its own, without seeing its number or its
 // neighbours, so each level describes a concrete situation, not a degree.
@@ -23,7 +24,7 @@ const DEFENCE_LADDER = [
 ];
 
 const OFFENCE_LADDER = [
-  "The spell does not attack the enemy at all, or it only claims great or absolute power with no mechanism, such as 'this spell kills anything instantly' or 'I destroy you with infinite power'.",
+  "The spell does not attack the enemy at all.",
   "The spell names an attack but it is vague or generic, or it uses something a creature like this would plainly shrug off.",
   "The spell is a believable attack that would do minor harm to a creature like this, but it has nothing to do with what the creature is made of or how it lives.",
   "The spell is a solid attack with a clear mechanism that would really hurt a creature like this.",
@@ -73,8 +74,20 @@ const QUESTIONS = {
   offence: {
     type: "score",
     instructions:
-      "`spell` is a magic spell cast by a player at the creature in `enemy`. Using common sense about what a creature like `enemy.name`, described in `enemy.description`, is, how believable is it that the spell in `spell` would really hurt it? Judge only harm done to the creature, not protection of the caster. A spell that just declares victory or unlimited power, without saying how it works, does not hurt the creature.",
+      "`spell` is a magic spell cast by a player at the creature in `enemy`. Using common sense about what a creature like `enemy.name`, described in `enemy.description`, is, how believable is it that the spell in `spell` would really hurt it? Judge only harm done to the creature, not protection of the caster.",
     criteria: OFFENCE_LADDER,
+  },
+};
+
+// The "I win" guard, asked on its own so the UI can say why a strong-sounding spell did nothing.
+// ponytail: the offence ladder no longer knows about hollow spells, so it may score them high; that is fine, code negates them.
+const hollowQuestion = {
+  type: "noul",
+  instructions:
+    "`spell` is a magic spell cast by a player at the creature in `enemy`. Does the spell in `spell` only declare that the creature is hurt, defeated or destroyed, or claim great or absolute power, without describing any means by which that happens?",
+  criteria: {
+    true: "The spell only states a result or claims power, such as 'this spell kills anything instantly', 'I destroy you with infinite power' or 'the golem dies'. It names no force, element, object or action that does the harm.",
+    false: "The spell names something that does the harm, such as fire, frost, thorns, a blade, wind, light or a curse acting on the creature, even briefly or vaguely. A spell that does not try to hurt the creature at all also counts as no.",
   },
 };
 
@@ -95,7 +108,7 @@ function mostLikely(probabilities: Record<string, number>): number {
 
 export async function judge(cast: Cast, apiKey: string): Promise<Verdict> {
   const { immunity, ...state } = cast;
-  const questions = immunity ? { ...QUESTIONS, immune: immunityQuestion(immunity) } : QUESTIONS;
+  const questions = { ...QUESTIONS, hollow: hollowQuestion, ...(immunity && { immune: immunityQuestion(immunity) }) };
   const res = await fetch("https://api.typesafe.ai/v1/systemone", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -109,5 +122,6 @@ export async function judge(cast: Cast, apiKey: string): Promise<Verdict> {
     defence: mostLikely(answers.defence.probabilities),
     offence: mostLikely(answers.offence.probabilities),
     immune: (answers.immune?.noul ?? 0) >= 0.5,
+    hollow: answers.hollow.noul >= 0.5,
   };
 }
