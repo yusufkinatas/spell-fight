@@ -2,6 +2,7 @@ import { BARRIER_BREAKS_LINE, DEFENCE_LINES, ENEMIES, FIZZLE_LINE, FORBIDDEN_LAB
 import { TUNING, applyCast, canCast, drawHand, isPhaseChange, isWon, logFizzle, logNextEnemy, logTurn, newRun, nextEnemy, offenceOf, revealCues, usedHandWords, wordCount, type Cue, type LogEntry, type Run } from "./game.ts";
 import { effect, music, playCue, setSetting, settings, shimmer, unlockAudio } from "./audio.ts";
 import { icon } from "./icons.ts";
+import "./prototype-fonts.ts"; // PROTOTYPE: font variants, remove with the file
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
