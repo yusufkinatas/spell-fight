@@ -1,6 +1,6 @@
 # Spellcrafting duel game (working title: none yet)
 
-**SUPERSEDED by `spec.md`** — all open questions below were settled there.
+**SUPERSEDED** — all open questions below were settled; specs now live as GitHub issues, vocabulary in `CONTEXT.md`.
 
 Status: raw idea, mechanics deliberately undecided. This file is the handoff
 for a fresh session to discuss and sharpen the idea. Do not start building
