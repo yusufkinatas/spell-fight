@@ -120,7 +120,7 @@ export const DEFENCE_LINES = [
 export const INSTANT_KILL_LINE = "A perfect spell. The enemy is destroyed before it can strike.";
 export const KILL_LINE = "The enemy falls before its attack lands.";
 // Shown when a boss phase falls and the next entry has the same name.
-export const BARRIER_BREAKS_LINE = "💥 The barrier shatters before the attack lands. The boss stands exposed!";
+export const BARRIER_BREAKS_LINE = "💥 The barrier shatters. The boss stands exposed!";
 export const WIN_LINE = "🏆 The last enemy falls. You win!";
 export const LOSE_LINE = "💀 You have fallen. The run starts again from the first enemy.";
 

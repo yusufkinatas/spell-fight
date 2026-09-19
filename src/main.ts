@@ -82,8 +82,8 @@ function render() {
       run = applyCast(run, enemy, verdict);
       const offence = offenceOf(verdict);
       const instant = enemy.instantKill && offence === 5;
-      // An enemy killed by the spell never lands its attack, so there is no defence line to show.
-      const defenceLine = run.enemyHp === 0 ? (phaseChange ? "The barrier falls before the attack lands." : KILL_LINE) : DEFENCE_LINES[verdict.defence];
+      // Only an instant kill stops the attack, so only then is there no defence line to show.
+      const defenceLine = instant ? KILL_LINE : DEFENCE_LINES[verdict.defence];
       result =
         `${(verdict.immune && enemy.immunity?.line) || (instant ? INSTANT_KILL_LINE : OFFENCE_LINES[offence])} (−${before.enemyHp - run.enemyHp} enemy HP)\n` +
         `${defenceLine} (−${before.playerHp - run.playerHp} HP)\n` +

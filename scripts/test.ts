@@ -27,7 +27,7 @@ assert.deepEqual([0, 1, 2, 3, 4, 5].map((d) => damageTaken(3, d)), [3, 2, 2, 1, 
 const golem = { power: 3, instantKill: true };
 assert.deepEqual(applyCast({ enemy: 0, enemyHp: 8, playerHp: 20 }, golem, { offence: 4, defence: 1 }), { enemy: 0, enemyHp: 4, playerHp: 18 });
 assert.deepEqual(applyCast({ enemy: 0, enemyHp: 8, playerHp: 2 }, golem, { offence: 0, defence: 0 }), { enemy: 0, enemyHp: 8, playerHp: 0 }, "HP floors at 0");
-assert.deepEqual(applyCast({ enemy: 0, enemyHp: 3, playerHp: 1 }, golem, { offence: 3, defence: 0 }), { enemy: 0, enemyHp: 0, playerHp: 1 }, "offence first: a dead enemy does not attack");
+assert.deepEqual(applyCast({ enemy: 0, enemyHp: 3, playerHp: 1 }, golem, { offence: 3, defence: 0 }), { enemy: 0, enemyHp: 0, playerHp: 0 }, "only an instant kill skips the attack: a dying enemy still strikes");
 
 // Instant kill: offence 5 kills at any HP and the attack never lands; an enemy that opts out just takes max damage.
 assert.deepEqual(applyCast({ enemy: 0, enemyHp: 99, playerHp: 1 }, golem, { offence: 5, defence: 0 }), { enemy: 0, enemyHp: 0, playerHp: 1 });
@@ -57,7 +57,8 @@ for (const phase of [barrier, boss])
   assert.deepEqual(applyCast({ enemy: 0, enemyHp: phase.hp, playerHp: 20 }, phase, { offence: 5, defence: 0 }), { enemy: 0, enemyHp: phase.hp - 6, playerHp: 20 - phase.power });
 run = applyCast({ enemy: ENEMIES.length - 2, enemyHp: 6, playerHp: 9 }, barrier, { offence: 5, defence: 0 });
 assert.equal(isWon(run), false, "breaking the barrier is not a win");
-assert.deepEqual(nextEnemy(run), { enemy: ENEMIES.length - 1, enemyHp: boss.hp, playerHp: 9 }, "no heal on phase change");
+assert.equal(run.playerHp, 9 - barrier.power, "the boss still attacks on the turn its barrier breaks");
+assert.deepEqual(nextEnemy(run), { enemy: ENEMIES.length - 1, enemyHp: boss.hp, playerHp: run.playerHp }, "no heal on phase change");
 
 // Content shape: 3 attacks each, difficulty rises, ~70 words.
 assert.ok(ENEMIES.every((e) => e.attacks.length === 3));
